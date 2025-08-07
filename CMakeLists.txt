@@ -25,20 +25,16 @@ add_library(ImGui
 add_subdirectory(
     dependencies/glfw-3.4/              SYSTEM
 )
-
-add_library(glad    STATIC
-    dependencies/glad1/src/glad.c
-)
-target_include_directories(
-    glad PUBLIC
-    dependencies/glad1/include
+add_subdirectory(
+    dependencies/glad1/                 SYSTEM
+    # dependencies/glad-2.0.8/
 )
 
 target_include_directories(
     ImGui PUBLIC
+    dependencies/glfw-3.4/include/
     dependencies/imgui-1.92.1/
     dependencies/imgui-1.92.1/backends/
-    dependencies/glfw-3.4/include/
 )
 
 target_link_libraries(
@@ -46,12 +42,4 @@ target_link_libraries(
     ImGui
     glad
     glfw
-)
-
-target_include_directories(
-    ${EXE_NAME} PRIVATE
-    dependencies/glad1/include
-    dependencies/glfw-3.4/include
-    dependencies/imgui-1.92.1/
-    dependencies/imgui-1.92.1/backends/
 )

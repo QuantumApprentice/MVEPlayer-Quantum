@@ -15,6 +15,7 @@
 #if defined(IMGUI_IMPL_OPENGL_ES2)
 #include <GLES2/gl2.h>
 #endif
+#include <glad/glad.h>
 #include <GLFW/glfw3.h> // Will drag system OpenGL headers
 
 // [Win32] Our example includes a copy of glfw3.lib pre-compiled with VS2010 to maximize ease of testing and compatibility with old VS compilers.
@@ -32,6 +33,19 @@
 static void glfw_error_callback(int error, const char* description)
 {
     fprintf(stderr, "GLFW Error %d: %s\n", error, description);
+}
+void init_glad()
+{
+    if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress))
+    {
+        printf("Glad Loader failed?...");
+        // exit(-1);
+    } else {
+        printf("Vendor: %s\n",       glGetString(GL_VENDOR));
+        printf("Renderer: %s\n",     glGetString(GL_RENDERER));
+        printf("Version: %s\n",      glGetString(GL_VERSION));
+        printf("GLSL Version: %s\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
+    }
 }
 
 // Main code
@@ -65,7 +79,7 @@ int main(int, char**)
     // GL 3.0 + GLSL 130
     const char* glsl_version = "#version 130";
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
     //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
 #endif
@@ -77,6 +91,8 @@ int main(int, char**)
         return 1;
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1); // Enable vsync
+
+    init_glad();
 
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
