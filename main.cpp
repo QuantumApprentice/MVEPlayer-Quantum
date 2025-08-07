@@ -155,6 +155,7 @@ int main(int, char**)
                     parse_chunk(fileptr);
 
                 }
+                fclose(fileptr);
 
             }
 
@@ -230,5 +231,22 @@ bool parse_header(FILE* fileptr)
 
 void parse_chunk(FILE* fileptr)
 {
-
+    #define buffsize (2)
+    uint16_t buffer[buffsize];
+    fread(buffer, sizeof(buffer), 1, fileptr);
+    for (int i = 0; i < buffsize; i++)
+    {
+        printf("length: %04x : %d\n", buffer[i], buffer[i]);
+        printf("type:   %04x\n", buffer[++i]);
+    }
+    if (buffer[1] == 2) {
+        printf("init video\n");
+        fseek(fileptr, buffer[0], SEEK_CUR);
+        fread(buffer, sizeof(buffer), 1, fileptr);
+        for (int i = 0; i < buffsize; i++)
+        {
+            printf("length: %04x\n", buffer[i++]);
+            printf("type:   %04x\n", buffer[i]);
+        }
+    }
 }
