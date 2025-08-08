@@ -1,4 +1,7 @@
 #pragma once
 #include <stdio.h>
+#include <stdint.h>
 
 void init_audio(FILE* fileptr);
+void parse_audio_frame(uint8_t* buffer);
+

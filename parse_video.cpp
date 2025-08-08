@@ -118,14 +118,14 @@ void init_palette(uint8_t* buffer)
     }
 }
 
-void init_video(FILE* fileptr, chunkinfo* info)
+void init_video(FILE* fileptr, chunkinfo info)
 {
-    uint8_t* wut = (uint8_t*)calloc(1, info->size);
-    fread(wut, info->size, 1, fileptr);
-    printf("chunk -- size: %d type: %d\n", info->size, info->type);
+    uint8_t* wut = (uint8_t*)calloc(1, info.size);
+    fread(wut, info.size, 1, fileptr);
+    printf("chunk -- size: %d type: %d\n", info.size, info.type);
 
     int offset = 0;
-    while (offset < info->size)
+    while (offset < info.size)
     {
         opcodeinfo op;
         memcpy(&op, &wut[offset], sizeof(op));
@@ -138,12 +138,32 @@ void init_video(FILE* fileptr, chunkinfo* info)
     free(wut);
 }
 
-
-
-
-
-
-void parse_video_chunk(FILE* fileptr, chunkinfo* info)
+void create_timer(uint8_t* buffer)
 {
+    memcpy(&video_buffer.timer, buffer, sizeof(video_buffer.timer));
 
+    if (debug) {
+        printf("rate: %d, subdivision: %d\n", video_buffer.timer.rate, video_buffer.timer.subdivision);
+    }
+}
+
+void parse_video_chunk(FILE* fileptr, chunkinfo info)
+{
+    uint8_t* wut = (uint8_t*)calloc(1, info.size);
+    fread(wut, info.size, 1, fileptr);
+    printf("chunk -- size: %d type: %d\n", info.size, info.type);
+
+    int offset = 0;
+    while (offset < info.size)
+    {
+        opcodeinfo op;
+        memcpy(&op, &wut[offset], sizeof(op));
+        printf("op -- len: %d, type: %04x, ver: %d\n", op.size, op.type, op.version);
+
+        offset += 4;
+        parse_opcode(op, &wut[offset]);
+        offset += op.size;
+    }
+    printf("done processing video chunk\n");
+    free(wut);
 }

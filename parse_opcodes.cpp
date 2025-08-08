@@ -1,10 +1,12 @@
 #include <stdint.h>
 #include "parse_opcodes.h"
 #include "parse_video.h"
+#include "parse_audio.h"
 
 
 void parse_opcode(opcodeinfo op, uint8_t* buffer)
 {
+    // printf("")
     switch (op.type)
     {
     case 0x00:
@@ -14,6 +16,7 @@ void parse_opcode(opcodeinfo op, uint8_t* buffer)
         //do nothing?
         break;
     case 0x02:
+        create_timer(buffer);
         break;
     case 0x03:
         break;
@@ -27,8 +30,9 @@ void parse_opcode(opcodeinfo op, uint8_t* buffer)
     case 0x07:
         break;
     case 0x08:
-        break;
+        //fall through to 0x09 (both are audio)
     case 0x09:
+        parse_audio_frame(buffer);
         break;
     case 0x0A:  //Initialize Video Mode
         init_video_mode(buffer);
@@ -47,6 +51,7 @@ void parse_opcode(opcodeinfo op, uint8_t* buffer)
     case 0x10:
         break;
     case 0x11:
+        
         break;
     case 0x12:
         break;

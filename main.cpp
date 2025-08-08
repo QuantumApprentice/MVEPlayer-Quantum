@@ -284,14 +284,12 @@ void parse_chunk(FILE* fileptr)
             //TODO: process the audio
             break;
         case CHUNK_init_video:
-            // printf("position1: %d\n", ftell(fileptr));
             printf("initing video\n");
-            init_video(fileptr, &info);
-            // printf("position2: %d\n", ftell(fileptr));
-            //TODO: init the flippin video
+            init_video(fileptr, info);
             break;
         case CHUNK_video:
             printf("processing video\n");
+            parse_video_chunk(fileptr, info);
             frame++;
             fseek(fileptr, buffer[0], SEEK_CUR);
             //TODO: process the video
