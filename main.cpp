@@ -15,9 +15,12 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h> // Will drag system OpenGL headers
 
+#include "parse_video.h"
+
 FILE* open_file(char* filename);
 bool parse_header(FILE* fileptr);
 void parse_chunk(FILE* fileptr);
+int get_filesize(FILE* fileptr);
 
 
 
@@ -150,6 +153,7 @@ int main(int, char**)
                     success = false;
                 }
 
+
                 success = parse_header(fileptr);
                 if (success) {
                     parse_chunk(fileptr);
@@ -229,24 +233,88 @@ bool parse_header(FILE* fileptr)
     return true;
 }
 
+int get_filesize(FILE* fileptr)
+{
+    int curr_pos = ftell(fileptr);
+    fseek(fileptr, 0, SEEK_END);
+    int file_len = ftell(fileptr);
+    fseek(fileptr, curr_pos, SEEK_SET);
+
+    return file_len;
+}
+
+#define buffsize (2)
+enum CHUNK {
+    CHUNK_init_audio  =  0,
+    CHUNK_audio       =  1,
+    CHUNK_init_video  =  2,
+    CHUNK_video       =  3,
+    CHUNK_shutdown    =  4,
+    CHUNK_end         =  5,
+};
+
+
 void parse_chunk(FILE* fileptr)
 {
-    #define buffsize (2)
-    uint16_t buffer[buffsize];
-    fread(buffer, sizeof(buffer), 1, fileptr);
-    for (int i = 0; i < buffsize; i++)
+    int size = get_filesize(fileptr);
+    int frame = 0;
+
+    while (ftell(fileptr) < size)
     {
-        printf("length: %04x : %d\n", buffer[i], buffer[i]);
-        printf("type:   %04x\n", buffer[++i]);
-    }
-    if (buffer[1] == 2) {
-        printf("init video\n");
-        fseek(fileptr, buffer[0], SEEK_CUR);
+        chunkinfo info;
+        uint16_t buffer[buffsize];
         fread(buffer, sizeof(buffer), 1, fileptr);
-        for (int i = 0; i < buffsize; i++)
+        info.size = buffer[0];
+        info.type = buffer[1];
+        // printf("length: %04x : %d\n", info.size, info.size);
+        // printf("type:   %04x\n", info.type);
+
+        switch (info.type)
         {
-            printf("length: %04x\n", buffer[i++]);
-            printf("type:   %04x\n", buffer[i]);
+        case CHUNK_init_audio:
+            printf("initing audio\n");
+            fseek(fileptr, buffer[0], SEEK_CUR);
+            //TODO: init the flipping audio
+            break;
+        case CHUNK_audio:
+            printf("processing audio\n");
+            fseek(fileptr, buffer[0], SEEK_CUR);
+            //TODO: process the audio
+            break;
+        case CHUNK_init_video:
+            // printf("position1: %d\n", ftell(fileptr));
+            printf("initing video\n");
+            init_video(fileptr, &info);
+            // printf("position2: %d\n", ftell(fileptr));
+            //TODO: init the flippin video
+            break;
+        case CHUNK_video:
+            printf("processing video\n");
+            frame++;
+            fseek(fileptr, buffer[0], SEEK_CUR);
+            //TODO: process the video
+            break;
+        case CHUNK_shutdown:
+            printf("shutting down\n");
+            fseek(fileptr, buffer[0], SEEK_CUR);
+            //TODO: handle shutdown
+            break;
+        case CHUNK_end:
+            printf("end of file\n");
+            fseek(fileptr, buffer[0], SEEK_CUR);
+            fclose(fileptr);
+            //TODO: nothing?
+            break;
+
+        default:
+            printf("uh oh, we got a missing chunk code or something?\n");
+            break;
         }
+
+        // fseek(fileptr, buffer[0], SEEK_CUR);
     }
+
+    printf("%d frames processed\n", frame);
+
+
 }

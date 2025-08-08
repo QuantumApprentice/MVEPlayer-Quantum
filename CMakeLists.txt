@@ -7,6 +7,8 @@ add_executable(${EXE_NAME})
 target_sources(
     ${EXE_NAME} PRIVATE
     main.cpp
+    parse_video.cpp
+    parse_video.h
 )
 
 add_library(ImGui
