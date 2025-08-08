@@ -8,7 +8,7 @@ target_sources(
     ${EXE_NAME} PRIVATE
     main.cpp
     parse_video.cpp
-    parse_video.h
+    parse_audio.cpp
 )
 
 add_library(ImGui

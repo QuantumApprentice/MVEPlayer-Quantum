@@ -4,13 +4,15 @@
 #include <stdlib.h>
 #include <memory.h>
 
+bool debug = false;
+
+#pragma pack(push, 1)
 struct videoinit_info
 {
     uint16_t w;
     uint16_t h;
     uint16_t f;
 };
-
 struct videoinit_buffer_v0
 {
     uint16_t w;
@@ -29,12 +31,17 @@ struct videoinit_buffer_v2
     uint16_t count;
     uint16_t color;
 };
+#pragma pack(pop)
 
 void initialize_video_mode(uint8_t* buffer)
 {
     videoinit_info initinfo;
     memcpy(&initinfo, buffer, sizeof(initinfo));
-    printf("w: %d, h: %d, f: %04x\n", initinfo.w, initinfo.h, initinfo.f);
+    if (debug) {
+        printf("w: %d, h: %d, f: %04x\n", initinfo.w, initinfo.h, initinfo.f);
+    }
+    video_buffer.render_w = initinfo.w;
+    video_buffer.render_h = initinfo.h;
 }
 
 void initialize_video_buffer(uint8_t* buffer, uint8_t version)
@@ -56,17 +63,60 @@ void initialize_video_buffer(uint8_t* buffer, uint8_t version)
         videoinit_buffer_v2 vbuff2;
         memcpy(&vbuff2, buffer, sizeof(vbuff2));
         buff_size = 2* vbuff2.w * vbuff2.h * vbuff2.count;
-        printf("vbuff w: %d, vbuff h, %d, vbuff count: %d\n", vbuff2.w, vbuff2.h, vbuff2.count);
+
+        if (debug) {
+            printf("vbuff w: %d, vbuff h, %d, vbuff count: %d\n", vbuff2.w, vbuff2.h, vbuff2.count);
+        }
+
+        video_buffer.block_w = vbuff2.w;
+        video_buffer.block_h = vbuff2.h;
+        video_buffer.size    = buff_size;
+
+        video_buffer.video_buffer = (uint8_t*)malloc(buff_size);
 
         break;}
     default:
         printf("wtf is going on here?\n");
         break;
     }
-
-    printf("video buffer size: %d\n", buff_size);
+    if (debug) {
+        printf("video buffer size: %d\n", buff_size);
+    }
 
 }
+
+void initialize_palette(uint8_t* buffer)
+{
+    struct pal_info {
+        uint16_t start;
+        uint16_t count;
+        uint8_t data[];
+    } pal_info;
+    memcpy(&pal_info, buffer, sizeof(pal_info));
+
+    if (debug) {
+        printf("pal start: %d, pal count: %d\n", pal_info.start, pal_info.count);
+    }
+    int i = 0;
+    if (pal_info.start != 0) {
+        while (i < pal_info.start)
+        {
+            video_buffer.pal[i].r = 0;
+            video_buffer.pal[i].g = 0;
+            video_buffer.pal[i].b = 0;
+            i++;
+        }
+    }
+    memcpy(&video_buffer.pal[i], &buffer[4], pal_info.count*3);
+    if (debug) {
+        printf("palette colors:\n");
+        for (int i = 0; i < pal_info.count + pal_info.start; i++)
+        {
+            printf("i:%d r:%d g:%d b:%d\n", i, video_buffer.pal[i].r, video_buffer.pal[i].g, video_buffer.pal[i].b);
+        }
+    }
+}
+
 
 
 void init_video(FILE* fileptr, chunkinfo* info)
@@ -89,6 +139,8 @@ void init_video(FILE* fileptr, chunkinfo* info)
         case 0x00:
             break;
         case 0x01:
+            //end of chunk
+            //do nothing?
             break;
         case 0x02:
             break;
@@ -113,6 +165,7 @@ void init_video(FILE* fileptr, chunkinfo* info)
         case 0x0B:
             break;
         case 0x0C:
+            initialize_palette(&wut[offset]);
             break;
         case 0x0D:
             break;
@@ -131,6 +184,8 @@ void init_video(FILE* fileptr, chunkinfo* info)
         case 0x14:
             break;
         case 0x15:
+            //unknown
+            //do nothing?
             break;
 
         default:
@@ -142,9 +197,6 @@ void init_video(FILE* fileptr, chunkinfo* info)
     }
 
 
-
-    // memcpy(&op, wut+5, sizeof(op));
-    // printf("op -- len: %d, type: %04x, ver: %d\n", op.size, op.type, op.version);
 
 
 

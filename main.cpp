@@ -16,6 +16,7 @@
 #include <GLFW/glfw3.h> // Will drag system OpenGL headers
 
 #include "parse_video.h"
+#include "parse_audio.h"
 
 FILE* open_file(char* filename);
 bool parse_header(FILE* fileptr);
@@ -273,6 +274,7 @@ void parse_chunk(FILE* fileptr)
         {
         case CHUNK_init_audio:
             printf("initing audio\n");
+            init_audio(fileptr);
             fseek(fileptr, buffer[0], SEEK_CUR);
             //TODO: init the flipping audio
             break;
