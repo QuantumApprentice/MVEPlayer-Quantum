@@ -7,11 +7,7 @@ struct chunkinfo {
     uint16_t type;
 };
 
-struct opcodeinfo {
-    uint16_t size;
-    uint8_t  type;
-    uint8_t version;
-};
+
 
 struct palette {
     uint8_t r;
@@ -30,3 +26,8 @@ static struct video_buff {
 } video_buffer;
 
 void init_video(FILE* fileptr, chunkinfo* info);
+void init_video_buffer(uint8_t* buffer, uint8_t version);
+void init_video_mode(uint8_t* buffer);
+void init_palette(uint8_t* buffer);
+
+void parse_video_chunk(FILE* fileptr, chunkinfo* info);

@@ -9,6 +9,7 @@ target_sources(
     main.cpp
     parse_video.cpp
     parse_audio.cpp
+    parse_opcodes.cpp
 )
 
 add_library(ImGui

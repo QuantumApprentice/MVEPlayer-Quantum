@@ -1,4 +1,5 @@
 #include "parse_video.h"
+#include "parse_opcodes.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,7 +34,7 @@ struct videoinit_buffer_v2
 };
 #pragma pack(pop)
 
-void initialize_video_mode(uint8_t* buffer)
+void init_video_mode(uint8_t* buffer)
 {
     videoinit_info initinfo;
     memcpy(&initinfo, buffer, sizeof(initinfo));
@@ -44,7 +45,7 @@ void initialize_video_mode(uint8_t* buffer)
     video_buffer.render_h = initinfo.h;
 }
 
-void initialize_video_buffer(uint8_t* buffer, uint8_t version)
+void init_video_buffer(uint8_t* buffer, uint8_t version)
 {
     int buff_size = 0;
     switch (version)
@@ -85,7 +86,7 @@ void initialize_video_buffer(uint8_t* buffer, uint8_t version)
 
 }
 
-void initialize_palette(uint8_t* buffer)
+void init_palette(uint8_t* buffer)
 {
     struct pal_info {
         uint16_t start;
@@ -117,8 +118,6 @@ void initialize_palette(uint8_t* buffer)
     }
 }
 
-
-
 void init_video(FILE* fileptr, chunkinfo* info)
 {
     uint8_t* wut = (uint8_t*)calloc(1, info->size);
@@ -133,73 +132,18 @@ void init_video(FILE* fileptr, chunkinfo* info)
         printf("op -- len: %d, type: %04x, ver: %d\n", op.size, op.type, op.version);
 
         offset += 4;
-
-        switch (op.type)
-        {
-        case 0x00:
-            break;
-        case 0x01:
-            //end of chunk
-            //do nothing?
-            break;
-        case 0x02:
-            break;
-        case 0x03:
-            break;
-        case 0x04:
-            break;
-        case 0x05:
-            initialize_video_buffer(&wut[offset], op.version);
-            break;
-        case 0x06:
-            break;
-        case 0x07:
-            break;
-        case 0x08:
-            break;
-        case 0x09:
-            break;
-        case 0x0A:  //Initialize Video Mode
-            initialize_video_mode(&wut[offset]);
-            break;
-        case 0x0B:
-            break;
-        case 0x0C:
-            initialize_palette(&wut[offset]);
-            break;
-        case 0x0D:
-            break;
-        case 0x0E:
-            break;
-        case 0x0F:
-            break;
-        case 0x10:
-            break;
-        case 0x11:
-            break;
-        case 0x12:
-            break;
-        case 0x13:
-            break;
-        case 0x14:
-            break;
-        case 0x15:
-            //unknown
-            //do nothing?
-            break;
-
-        default:
-            break;
-        }
-
+        parse_opcode(op, &wut[offset]);
         offset += op.size;
-
     }
-
-
-
-
-
-
     free(wut);
+}
+
+
+
+
+
+
+void parse_video_chunk(FILE* fileptr, chunkinfo* info)
+{
+
 }

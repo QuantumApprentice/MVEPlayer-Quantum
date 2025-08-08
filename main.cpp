@@ -279,7 +279,7 @@ void parse_chunk(FILE* fileptr)
             //TODO: init the flipping audio
             break;
         case CHUNK_audio:
-            printf("processing audio\n");
+            printf("skipping processing audio\n");
             fseek(fileptr, buffer[0], SEEK_CUR);
             //TODO: process the audio
             break;

@@ -2,5 +2,6 @@
 
 void init_audio(FILE* fileptr)
 {
-    
+    printf("skipping audio for now\n");
+    return;
 }
