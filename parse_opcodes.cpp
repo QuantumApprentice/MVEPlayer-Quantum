@@ -29,8 +29,7 @@ void parse_opcode(opcodeinfo op, uint8_t* buffer)
         break;
     case 0x07:
         break;
-    case 0x08:
-        //fall through to 0x09 (both are audio)
+    case 0x08:  //fall through to 0x09 (both are audio)
     case 0x09:
         parse_audio_frame(buffer);
         break;
@@ -47,11 +46,12 @@ void parse_opcode(opcodeinfo op, uint8_t* buffer)
     case 0x0E:
         break;
     case 0x0F:
+        parse_decoding_map(buffer, op.size);
         break;
     case 0x10:
         break;
     case 0x11:
-        
+        parse_video_data(buffer);
         break;
     case 0x12:
         break;

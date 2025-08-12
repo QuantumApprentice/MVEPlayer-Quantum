@@ -10,6 +10,9 @@ target_sources(
     parse_video.cpp
     parse_audio.cpp
     parse_opcodes.cpp
+    MiniSDL.cpp
+    io_OpenGL.cpp
+    shader_class.cpp
 )
 
 add_library(ImGui

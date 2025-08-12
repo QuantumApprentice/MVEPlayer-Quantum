@@ -244,7 +244,6 @@ int get_filesize(FILE* fileptr)
     return file_len;
 }
 
-#define buffsize (2)
 enum CHUNK {
     CHUNK_init_audio  =  0,
     CHUNK_audio       =  1,
@@ -255,6 +254,7 @@ enum CHUNK {
 };
 
 
+#define buffsize (2)
 void parse_chunk(FILE* fileptr)
 {
     int size = get_filesize(fileptr);

@@ -1,5 +1,7 @@
 #include "parse_video.h"
 #include "parse_opcodes.h"
+#include "MiniSDL.h"
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,6 +45,7 @@ void init_video_mode(uint8_t* buffer)
     }
     video_buffer.render_w = initinfo.w;
     video_buffer.render_h = initinfo.h;
+    video_buffer.pitch    = initinfo.w * 4;
 }
 
 void init_video_buffer(uint8_t* buffer, uint8_t version)
@@ -69,9 +72,9 @@ void init_video_buffer(uint8_t* buffer, uint8_t version)
             printf("vbuff w: %d, vbuff h, %d, vbuff count: %d\n", vbuff2.w, vbuff2.h, vbuff2.count);
         }
 
-        video_buffer.block_w = vbuff2.w;
-        video_buffer.block_h = vbuff2.h;
-        video_buffer.size    = buff_size;
+        video_buffer.block_w    = vbuff2.w;
+        video_buffer.block_h    = vbuff2.h;
+        video_buffer.video_size = buff_size;
 
         video_buffer.video_buffer = (uint8_t*)malloc(buff_size);
 
@@ -105,10 +108,14 @@ void init_palette(uint8_t* buffer)
             video_buffer.pal[i].r = 0;
             video_buffer.pal[i].g = 0;
             video_buffer.pal[i].b = 0;
+            video_buffer.pal[i].a = 255;
             i++;
         }
     }
     memcpy(&video_buffer.pal[i], &buffer[4], pal_info.count*3);
+    video_buffer.pal[i].a = 255;
+
+
     if (debug) {
         printf("palette colors:\n");
         for (int i = 0; i < pal_info.count + pal_info.start; i++)
@@ -166,4 +173,175 @@ void parse_video_chunk(FILE* fileptr, chunkinfo info)
     }
     printf("done processing video chunk\n");
     free(wut);
+}
+
+void parse_decoding_map(uint8_t* buffer, int size)
+{
+    video_buffer.map_size   = size;
+    video_buffer.map_stream = (uint8_t*)malloc(size);
+    memcpy(video_buffer.map_stream, buffer, size);
+}
+
+//set the whole frame a solid color?
+void solid_frame(uint8_t pal_index, video* video_buffer, uint8_t* dst_buff)
+{
+    Rect dst_rect;
+    dst_rect.w = 8;
+    dst_rect.h = 8;
+    dst_rect.x = 0;
+    dst_rect.y = 0;
+
+    palette color = video_buffer->pal[pal_index];
+    int pitch = video_buffer->pitch;
+
+    PaintSurface(dst_buff, pitch, dst_rect, color);
+}
+
+void patterned(uint8_t* data_stream, video* video, uint8_t* dst_buff)
+{
+    uint8_t P0 = data_stream[0];
+    uint8_t P1 = data_stream[1];
+
+    uint8_t P[2];
+    P[0] = data_stream[0];
+    P[1] = data_stream[1];
+
+
+    int pitch  = video->pitch;
+    palette* pal = video->pal;
+
+    uint8_t byte[8];
+
+
+
+
+    if (P0 <= P1) {
+        for (int i = 0; i < 8; i++)
+        {
+            byte[i] = data_stream[i+2];
+        }
+
+        uint8_t mask = 0x1 << 8;
+        for (int y = 0; y < 8; y++)
+        {
+            for (int x = 0; x < 8; x++)
+            {
+                bool indx = byte[y] & (mask >> x);
+
+                int pos = y*pitch + x;
+                palette color = pal[P[indx]];
+
+                dst_buff[pos + 0] = color.r;
+                dst_buff[pos + 1] = color.g;
+                dst_buff[pos + 2] = color.b;
+
+                dst_buff[pos + 3] = 255;
+            }
+        }
+
+    } else {
+        byte[0] = data_stream[2];
+        byte[1] = data_stream[3];
+        // 22 22 22 22 22 22 22 22 ; f == 1 0 1 1
+        // 22 22 22 22 22 22 22 22 ; 
+        // 22 22 22 22 22 22 22 22 ; f == 1 1 1 1
+        // 22 22 22 22 22 22 22 22 ; 
+        // 22 22 11 11 11 11 11 11 ; 8 == 1 0 0 0
+        // 22 22 11 11 11 11 11 11 ; 
+        // 11 11 11 11 11 11 22 22 ; 1 == 0 0 0 1
+        // 11 11 11 11 11 11 22 22 ;
+
+        int byte_index = 0;
+        uint8_t mask = 0x1 << 8;
+        uint8_t mask_offset = 0;
+        for (int y = 0; y < 8; y+=2)
+        {
+            for (int x = 0; x < 8; x+=2)
+            {
+                bool pal_index = byte[byte_index] & (mask >> mask_offset);
+                mask_offset++;
+                if (mask_offset >= 8) {
+                    mask_offset = 0;
+                }
+                palette color = pal[P[pal_index]];
+
+                int pos = y*pitch + x;
+                dst_buff[pos + 0] = color.r;
+                dst_buff[pos + 1] = color.g;
+                dst_buff[pos + 2] = color.b;
+                dst_buff[pos + 3] = 255;
+            }
+
+            //     int ya;
+            //     int xa;
+            //     if (y < 4) {
+            //         ya = 0;
+            //         xa = x/2;
+            //     } else {
+            //         ya = 1;
+            //         xa = x+4;
+            //     }
+            //     bool indx = byte[ya] & (mask >> xa);
+            //     int pos = y*pitch + x;
+            //     palette color = pal[P[indx]];
+            //     dst_buff[pos + 0] = color.r;
+            //     dst_buff[pos + 1] = color.g;
+            //     dst_buff[pos + 2] = color.b;
+            //     dst_buff[pos + 3] = 255;
+            // }
+        }
+    }
+}
+
+void parse_video_encode(uint8_t* data_stream, uint8_t* video, uint8_t op)
+{
+    switch (op)
+    {
+    case 0x07:
+        patterned(data_stream, &video_buffer, video);
+        break;
+    case 0x08:
+        break;
+    case 0x0E:
+        solid_frame(data_stream[0], &video_buffer, video);
+        break;
+    
+    default:
+        break;
+    }
+}
+
+void parse_video_data(uint8_t* buffer)
+{
+    uint8_t* map_stream = video_buffer.map_stream;
+    uint8_t* data_stream = buffer;
+
+    union Nibbles { 
+        uint8_t byte;
+        struct {
+            uint8_t low  : 4;
+            uint8_t high : 4;
+        };
+    };
+
+    uint8_t* video = video_buffer.video_buffer;
+
+    for (int i = 0; i < video_buffer.map_size; i++)
+    {
+        Nibbles enc;
+        enc.byte = map_stream[i];
+        // uint8_t encode_v1 = (map_stream[i] & 0xF0) >> 4;
+        // uint8_t encode_v2 =  map_stream[i] & 0x0F;
+        parse_video_encode(&data_stream[i], &video[i*4+0], enc.low);
+        parse_video_encode(&data_stream[i], &video[i*4+4], enc.high);
+        printf("opcode_v1:%02x opcode_v2:%02x   map_stream[%d]:%02x\n", enc.low, enc.high, i, map_stream[i]);
+    }
+
+
+
+
+
+
+
+    printf("what are we looking at? %d\n", buffer[0]);
 }

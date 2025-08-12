@@ -9,10 +9,14 @@ struct chunkinfo {
 
 
 #pragma pack(push,1)
-struct palette {
-    uint8_t r;
-    uint8_t g;
-    uint8_t b;
+union palette {
+    struct {
+        uint8_t r;
+        uint8_t g;
+        uint8_t b;
+        uint8_t a;
+    };
+    uint32_t color;
 };
 struct timer_struct {
     uint32_t rate;
@@ -20,13 +24,16 @@ struct timer_struct {
 };
 #pragma pack(pop)
 
-static struct video_buff {
+static struct video {
     uint8_t* video_buffer = NULL;
-    struct palette pal[256];
+    uint8_t* map_stream = NULL;
+    int map_size;
+    palette pal[256];
     timer_struct timer;
-    int size = 0;
+    int video_size = 0;
     int render_w;
     int render_h;
+    int pitch;
     int block_w;
     int block_h;
 } video_buffer;
@@ -38,3 +45,6 @@ void init_palette(uint8_t* buffer);
 
 void parse_video_chunk(FILE* fileptr, chunkinfo info);
 void create_timer(uint8_t* buffer);
+void parse_decoding_map(uint8_t* buffer, int size);
+
+void parse_video_data(uint8_t* buffer);
