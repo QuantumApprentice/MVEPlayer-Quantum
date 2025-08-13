@@ -47,19 +47,19 @@ void blit_to_texture(GLuint tex, uint8_t* pxls, int width, int height)
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, tex);
     //Change alignment with glPixelStorei() (this change is global/permanent until changed back)
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 3);
     //bind data to FRM_texture for display
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pxls);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, pxls);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 }
 
-void blit_to_framebuffer(GLuint framebuffer, GLuint texture, Shader* shader, mesh* triangle, int w, int h)
+void blit_to_framebuffer(GLuint framebuffer, GLuint tex, Shader* shader, mesh* triangle, int w, int h)
 {
     glViewport(0, 0, w, h);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glBindVertexArray(triangle->VAO);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture);
+    glBindTexture(GL_TEXTURE_2D, tex);
 
     shader->use();
     //draw image to framebuffer
@@ -80,4 +80,21 @@ void set_palette(Shader* shader, GLuint* palette)
     }
 
     shader->setInt("Indexed_FRM", 0);
+}
+
+GLuint gen_texture(int w, int h, uint8_t* pxls)
+{
+    GLuint tex;
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, pxls);
+    glGenerateMipmap(GL_TEXTURE_2D);     //TODO: necessary?
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    return tex;
 }

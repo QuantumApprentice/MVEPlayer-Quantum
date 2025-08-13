@@ -34,11 +34,12 @@ void PaintSurface(uint8_t* dst, int pitch, Rect brush_rect, palette color)
     uint8_t* dst_pxls = &dst[brush_rect.y*pitch + brush_rect.x*4];
     //copy each row of src rectangle to dst surface
     for (int row = 0; row < brush_rect.h; row++) {
-        dst_pxls[0] = color.r;
-        dst_pxls[1] = color.g;
-        dst_pxls[2] = color.b;
-        dst_pxls[3] = color.a;
-
+        for (int col = 0; col < brush_rect.w; col++) {
+            dst_pxls[0+col] = color.r;
+            dst_pxls[1+col] = color.g;
+            dst_pxls[2+col] = color.b;
+            dst_pxls[3+col] = color.a;
+        }
         dst_pxls += pitch;
     }
 }

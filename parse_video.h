@@ -26,6 +26,9 @@ struct timer_struct {
 
 static struct video {
     uint8_t* video_buffer = NULL;
+    uint8_t* back_buffer = NULL;
+    uint32_t video_texture;
+    int file_size;
     uint8_t* map_stream = NULL;
     int map_size;
     palette pal[256];

@@ -22,6 +22,7 @@ FILE* open_file(char* filename);
 bool parse_header(FILE* fileptr);
 void parse_chunk(FILE* fileptr);
 int get_filesize(FILE* fileptr);
+void video_player();
 
 
 
@@ -141,34 +142,14 @@ int main(int, char**)
         if (show_demo_window)
             ImGui::ShowDemoWindow(&show_demo_window);
 
+
+
         ImGui::Begin("MVE Player!");
-
-            static bool success = true;
-            char filename[] = "../../testing/IPLOGO.MVE";
-
-            if (ImGui::Button("Play MVE")) {
-                printf("Parsing IPLOGO.MVE\n");
-
-                FILE* fileptr = open_file(filename);
-                if (!fileptr) {
-                    success = false;
-                }
-
-
-                success = parse_header(fileptr);
-                if (success) {
-                    parse_chunk(fileptr);
-
-                }
-                fclose(fileptr);
-
-            }
-
-            if (!success) {
-                ImGui::Text("Unable to open %s", filename);
-            }
-            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+        video_player();
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
         ImGui::End();
+
+
 
         // Rendering
         ImGui::Render();
@@ -244,6 +225,53 @@ int get_filesize(FILE* fileptr)
     return file_len;
 }
 
+void video_player()
+{
+
+    static bool success = false;
+    static FILE* fileptr = NULL;
+    char filename[] = "../../testing/IPLOGO.MVE";
+
+    if (video_buffer.video_buffer) {
+        ImVec2 uv_min = {0, 0};
+        ImVec2 uv_max = {1.0, 1.0};
+        int width   = video_buffer.render_w;
+        int height  = video_buffer.render_h;
+        float scale = 1;                        //video_buffer.scale;
+        ImVec2 size = ImVec2((float)(width * scale), (float)(height * scale));
+
+        ImGui::Image(
+            video_buffer.video_texture,
+            size, uv_min, uv_max
+        );
+        // ImGuiWindow *window = ImGui::GetCurrentWindow();
+        //TODO: change top_corner() for img_pos passed in from outside
+        // window->DrawList->AddImage(
+        //     (ImTextureID)(uintptr_t)img_data->render_texture,
+        //     top_corner(img_data->offset), bottom_corner(size, top_corner(img_data->offset)),
+        //     uv_min, uv_max,
+        //     ImGui::GetColorU32(My_Variables->tint_col));
+    }
+
+    if (ImGui::Button("Play MVE")) {
+        printf("Parsing IPLOGO.MVE\n");
+
+        fileptr = open_file(filename);
+        if (!fileptr) {
+            success = false;
+        }
+        video_buffer.file_size = get_filesize(fileptr);
+        success = parse_header(fileptr);
+    }
+
+    if (success) {
+        parse_chunk(fileptr);
+    } else {
+        // fclose(fileptr);
+        ImGui::Text("Unable to open %s", filename);
+    }
+}
+
 enum CHUNK {
     CHUNK_init_audio  =  0,
     CHUNK_audio       =  1,
@@ -253,15 +281,15 @@ enum CHUNK {
     CHUNK_end         =  5,
 };
 
-
 #define buffsize (2)
 void parse_chunk(FILE* fileptr)
 {
-    int size = get_filesize(fileptr);
-    int frame = 0;
-
-    while (ftell(fileptr) < size)
-    {
+    static int frame = 0;
+    if (ftell(fileptr) >= video_buffer.file_size) {
+        return;
+    }
+    // while (ftell(fileptr) < size)
+    // {
         chunkinfo info;
         uint16_t buffer[buffsize];
         fread(buffer, sizeof(buffer), 1, fileptr);
@@ -312,7 +340,7 @@ void parse_chunk(FILE* fileptr)
         }
 
         // fseek(fileptr, buffer[0], SEEK_CUR);
-    }
+    // }
 
     printf("%d frames processed\n", frame);
 

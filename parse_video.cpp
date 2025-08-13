@@ -1,6 +1,7 @@
 #include "parse_video.h"
 #include "parse_opcodes.h"
 #include "MiniSDL.h"
+#include "io_OpenGL.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -76,8 +77,6 @@ void init_video_buffer(uint8_t* buffer, uint8_t version)
         video_buffer.block_h    = vbuff2.h;
         video_buffer.video_size = buff_size;
 
-        video_buffer.video_buffer = (uint8_t*)malloc(buff_size);
-
         break;}
     default:
         printf("wtf is going on here?\n");
@@ -87,6 +86,8 @@ void init_video_buffer(uint8_t* buffer, uint8_t version)
         printf("video buffer size: %d\n", buff_size);
     }
 
+    video_buffer.video_buffer = (uint8_t*)malloc(buff_size);
+    video_buffer.video_texture = gen_texture(video_buffer.render_w, video_buffer.render_h, video_buffer.video_buffer);
 }
 
 void init_palette(uint8_t* buffer)
@@ -266,29 +267,15 @@ void patterned(uint8_t* data_stream, video* video, uint8_t* dst_buff)
                 palette color = pal[P[pal_index]];
 
                 int pos = y*pitch + x;
-                dst_buff[pos + 0] = color.r;
-                dst_buff[pos + 1] = color.g;
-                dst_buff[pos + 2] = color.b;
-                dst_buff[pos + 3] = 255;
-            }
+                Rect out = {
+                    out.w = 2,
+                    out.h = 2,
+                    out.x = x,
+                    out.y = y
+                };
 
-            //     int ya;
-            //     int xa;
-            //     if (y < 4) {
-            //         ya = 0;
-            //         xa = x/2;
-            //     } else {
-            //         ya = 1;
-            //         xa = x+4;
-            //     }
-            //     bool indx = byte[ya] & (mask >> xa);
-            //     int pos = y*pitch + x;
-            //     palette color = pal[P[indx]];
-            //     dst_buff[pos + 0] = color.r;
-            //     dst_buff[pos + 1] = color.g;
-            //     dst_buff[pos + 2] = color.b;
-            //     dst_buff[pos + 3] = 255;
-            // }
+                PaintSurface(dst_buff, pitch, out, color);
+            }
         }
     }
 }
