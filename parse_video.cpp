@@ -9,13 +9,14 @@
 #include <memory.h>
 
 bool debug = false;
+// extern video video_buffer;
 
 #pragma pack(push, 1)
 struct videoinit_info
 {
     uint16_t w;
     uint16_t h;
-    uint16_t f;
+    uint16_t f; //flags
 };
 struct videoinit_buffer_v0
 {
@@ -73,9 +74,9 @@ void init_video_buffer(uint8_t* buffer, uint8_t version)
             printf("vbuff w: %d, vbuff h, %d, vbuff count: %d\n", vbuff2.w, vbuff2.h, vbuff2.count);
         }
 
-        video_buffer.block_w    = vbuff2.w;
-        video_buffer.block_h    = vbuff2.h;
-        video_buffer.video_size = buff_size;
+        video_buffer.block_w   = vbuff2.w;
+        video_buffer.block_h   = vbuff2.h;
+        video_buffer.buff_size = buff_size; //what is this buff_size actually for?
 
         break;}
     default:
@@ -86,7 +87,7 @@ void init_video_buffer(uint8_t* buffer, uint8_t version)
         printf("video buffer size: %d\n", buff_size);
     }
 
-    video_buffer.video_buffer = (uint8_t*)malloc(buff_size);
+    video_buffer.video_buffer = (uint8_t*)malloc(video_buffer.render_w*video_buffer.render_h*3);
     video_buffer.video_texture = gen_texture(video_buffer.render_w, video_buffer.render_h, video_buffer.video_buffer);
 }
 
@@ -109,12 +110,12 @@ void init_palette(uint8_t* buffer)
             video_buffer.pal[i].r = 0;
             video_buffer.pal[i].g = 0;
             video_buffer.pal[i].b = 0;
-            video_buffer.pal[i].a = 255;
+            // video_buffer.pal[i].a = 255;
             i++;
         }
     }
     memcpy(&video_buffer.pal[i], &buffer[4], pal_info.count*3);
-    video_buffer.pal[i].a = 255;
+    // video_buffer.pal[i].a = 255;
 
 
     if (debug) {
@@ -153,6 +154,30 @@ void create_timer(uint8_t* buffer)
     if (debug) {
         printf("rate: %d, subdivision: %d\n", video_buffer.timer.rate, video_buffer.timer.subdivision);
     }
+}
+
+void send_buffer_to_display(uint8_t* buffer)
+{
+    struct pal_info {
+        uint16_t start;
+        uint16_t count;
+        uint16_t unknown;
+    } info;
+
+    memcpy(&info, buffer, sizeof(info));
+
+    printf("pal start: %d, pal count: %d, unkown: %d\n", info.start, info.count, info.unknown);
+
+
+    //TODO: should I use palette to convert pixels here?
+    //      instead of during the paint process?
+
+    GLuint tex = video_buffer.video_texture;
+    int w      = video_buffer.render_w;
+    int h      = video_buffer.render_h;
+    //TODO: swap buffers
+    uint8_t* pxls = video_buffer.video_buffer;
+    blit_to_texture(tex, pxls, w, h);
 }
 
 void parse_video_chunk(FILE* fileptr, chunkinfo info)
@@ -282,17 +307,44 @@ void patterned(uint8_t* data_stream, video* video, uint8_t* dst_buff)
 
 void parse_video_encode(uint8_t* data_stream, uint8_t* video, uint8_t op)
 {
+    video_buffer.encode_type[op]++;
     switch (op)
     {
+    case 0x00:
+        break;
+    case 0x01:
+        break;
+    case 0x02:
+        break;
+    case 0x03:
+        break;
+    case 0x04:
+        break;
+    case 0x05:
+        break;
+    case 0x06:
+        break;
     case 0x07:
         patterned(data_stream, &video_buffer, video);
         break;
     case 0x08:
         break;
+    case 0x09:
+        break;
+    case 0x0A:
+        break;
+    case 0x0B:
+        break;
+    case 0x0C:
+        break;
+    case 0x0D:
+        break;
     case 0x0E:
         solid_frame(data_stream[0], &video_buffer, video);
         break;
-    
+    case 0x0F:
+        break;
+
     default:
         break;
     }
@@ -317,18 +369,10 @@ void parse_video_data(uint8_t* buffer)
     {
         Nibbles enc;
         enc.byte = map_stream[i];
-        // uint8_t encode_v1 = (map_stream[i] & 0xF0) >> 4;
-        // uint8_t encode_v2 =  map_stream[i] & 0x0F;
-        parse_video_encode(&data_stream[i], &video[i*4+0], enc.low);
-        parse_video_encode(&data_stream[i], &video[i*4+4], enc.high);
+        parse_video_encode(&data_stream[i], &video[i*3+0], enc.low);
+        parse_video_encode(&data_stream[i], &video[i*3+3], enc.high);
         printf("opcode_v1:%02x opcode_v2:%02x   map_stream[%d]:%02x\n", enc.low, enc.high, i, map_stream[i]);
     }
 
-
-
-
-
-
-
-    printf("what are we looking at? %d\n", buffer[0]);
+    // printf("what are we looking at? %d\n", buffer[0]);
 }

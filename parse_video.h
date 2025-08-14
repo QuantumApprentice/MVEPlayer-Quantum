@@ -14,9 +14,9 @@ union palette {
         uint8_t r;
         uint8_t g;
         uint8_t b;
-        uint8_t a;
+        // uint8_t a;
     };
-    uint32_t color;
+    uint32_t color : 24;    //RGB
 };
 struct timer_struct {
     uint32_t rate;
@@ -24,7 +24,7 @@ struct timer_struct {
 };
 #pragma pack(pop)
 
-static struct video {
+struct video {
     uint8_t* video_buffer = NULL;
     uint8_t* back_buffer = NULL;
     uint32_t video_texture;
@@ -34,12 +34,15 @@ static struct video {
     palette pal[256];
     timer_struct timer;
     int video_size = 0;
+    int buff_size = 0;
     int render_w;
     int render_h;
     int pitch;
     int block_w;
     int block_h;
-} video_buffer;
+    int encode_type[0xf+1];
+};
+extern video video_buffer;
 
 void init_video(FILE* fileptr, chunkinfo info);
 void init_video_buffer(uint8_t* buffer, uint8_t version);
@@ -51,3 +54,4 @@ void create_timer(uint8_t* buffer);
 void parse_decoding_map(uint8_t* buffer, int size);
 
 void parse_video_data(uint8_t* buffer);
+void send_buffer_to_display(uint8_t* buffer);

@@ -31,14 +31,14 @@ void PaintSurface(uint8_t* dst, int pitch, Rect brush_rect, palette color)
         return;
     }
     // printf("color: %08x\n", color);
-    uint8_t* dst_pxls = &dst[brush_rect.y*pitch + brush_rect.x*4];
+    uint8_t* dst_pxls = &dst[brush_rect.y*pitch + brush_rect.x*3];
     //copy each row of src rectangle to dst surface
     for (int row = 0; row < brush_rect.h; row++) {
         for (int col = 0; col < brush_rect.w; col++) {
-            dst_pxls[0+col] = color.r;
-            dst_pxls[1+col] = color.g;
-            dst_pxls[2+col] = color.b;
-            dst_pxls[3+col] = color.a;
+            dst_pxls[0+col*3] = color.r;
+            dst_pxls[1+col*3] = color.g;
+            dst_pxls[2+col*3] = color.b;
+            // dst_pxls[3+col*3] = color.a;
         }
         dst_pxls += pitch;
     }

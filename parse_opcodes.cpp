@@ -21,6 +21,7 @@ void parse_opcode(opcodeinfo op, uint8_t* buffer)
     case 0x03:
         break;
     case 0x04:
+        printf("0x04: start/stop audio (skipping for now)\n");
         break;
     case 0x05:
         init_video_buffer(buffer, op.version);
@@ -28,6 +29,7 @@ void parse_opcode(opcodeinfo op, uint8_t* buffer)
     case 0x06:
         break;
     case 0x07:
+        send_buffer_to_display(buffer);
         break;
     case 0x08:  //fall through to 0x09 (both are audio)
     case 0x09:
