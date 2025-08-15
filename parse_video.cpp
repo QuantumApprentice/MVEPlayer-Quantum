@@ -260,8 +260,6 @@ int pattern_0x07(uint8_t* data_stream, video* video, uint8_t* dst_buff)
                 dst_buff[pos + 0] = color.r;
                 dst_buff[pos + 1] = color.g;
                 dst_buff[pos + 2] = color.b;
-
-                dst_buff[pos + 3] = 255;
             }
         }
 
