@@ -12,12 +12,12 @@ void BlitSurface(uint8_t* src, Rect src_rect, uint8_t* dst, Rect dst_rect, int s
     assert(src_rect.w == dst_rect.w);
     assert(src_rect.h == dst_rect.h);
     //set starting position for top left corner of rectangle to copy
-    uint8_t* src_pxls = &src[src_rect.y*src_pitch + src_rect.x*4];
-    uint8_t* dst_pxls = &dst[dst_rect.y*dst_pitch + dst_rect.x*4];
+    uint8_t* src_pxls = &src[src_rect.y*src_pitch + src_rect.x*3];
+    uint8_t* dst_pxls = &dst[dst_rect.y*dst_pitch + dst_rect.x*3];
 
     //copy each row of src rectangle to dst surface
     for (int row = 0; row < src_rect.h; row++) {
-        memcpy(dst_pxls, src_pxls, dst_pitch);
+        memcpy(dst_pxls, src_pxls, src_pitch);
         src_pxls += src_pitch;
         dst_pxls += dst_pitch;
     }
