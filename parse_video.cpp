@@ -47,7 +47,7 @@ void init_video_mode(uint8_t* buffer)
     }
     video_buffer.render_w = initinfo.w;
     video_buffer.render_h = initinfo.h;
-    video_buffer.pitch    = initinfo.w * 4;
+    video_buffer.pitch    = initinfo.w * 3;
 }
 
 void init_video_buffer(uint8_t* buffer, uint8_t version)
@@ -223,7 +223,7 @@ void solid_frame(uint8_t pal_index, video* video_buffer, uint8_t* dst_buff)
     PaintSurface(dst_buff, pitch, dst_rect, color);
 }
 
-void patterned(uint8_t* data_stream, video* video, uint8_t* dst_buff)
+void pattern_0x07(uint8_t* data_stream, video* video, uint8_t* dst_buff)
 {
     uint8_t P0 = data_stream[0];
     uint8_t P1 = data_stream[1];
@@ -232,22 +232,17 @@ void patterned(uint8_t* data_stream, video* video, uint8_t* dst_buff)
     P[0] = data_stream[0];
     P[1] = data_stream[1];
 
-
     int pitch  = video->pitch;
     palette* pal = video->pal;
 
     uint8_t byte[8];
-
-
-
-
     if (P0 <= P1) {
         for (int i = 0; i < 8; i++)
         {
             byte[i] = data_stream[i+2];
         }
 
-        uint8_t mask = 0x1 << 8;
+        uint8_t mask = 128;
         for (int y = 0; y < 8; y++)
         {
             for (int x = 0; x < 8; x++)
@@ -278,7 +273,7 @@ void patterned(uint8_t* data_stream, video* video, uint8_t* dst_buff)
         // 11 11 11 11 11 11 22 22 ;
 
         int byte_index = 0;
-        uint8_t mask = 0x1 << 8;
+        uint8_t mask = 128;
         uint8_t mask_offset = 0;
         for (int y = 0; y < 8; y+=2)
         {
@@ -305,8 +300,82 @@ void patterned(uint8_t* data_stream, video* video, uint8_t* dst_buff)
     }
 }
 
-void parse_video_encode(uint8_t* data_stream, uint8_t* video, uint8_t op)
+void pattern_0x08(uint8_t* data_stream, video* video, uint8_t* dst_buff)
 {
+#pragma pack(push,1)
+    struct quadrant {
+        uint8_t P0; uint8_t P1; uint8_t B0; uint8_t B1;
+    };
+#pragma pack(pop)
+    quadrant quad[4];
+
+    memcpy(&quad, data_stream, sizeof(quad));
+
+    uint8_t buffer[16*3] = {
+        255,255,255,  255,255,255,  255,255,255,  255,255,255,
+        255,255,255,  255,255,255,  255,255,255,  255,255,255,
+        255,255,255,  255,255,255,  255,255,255,  255,255,255,
+        255,255,255,  255,255,255,  255,255,255,  255,255,255,
+    };
+    int buff_pitch = 4*3;
+
+    palette* pal = video->pal;
+
+    //if P0 <= P1 we get all 4 corners
+    uint8_t mask_offset = 0;
+    if (quad[0].P0 <= quad[0].P1) {
+        int q = 0;
+        for (int y = 0; y < 4; y++)
+        {
+            for (int x = 0; x < 4; x++)
+            {
+                uint8_t mask = 128 >> mask_offset++;
+                if (mask_offset >= 8) {
+                    mask_offset = 0;
+                }
+                bool indx;
+                if (y < 2) {
+                    indx = quad[q].B0 & mask;
+                } else {
+                    indx = quad[q].B1 & mask;
+                }
+                palette color = indx ? pal[quad[q].P0] : pal[quad[q].P1];
+
+                buffer[y*buff_pitch + x*3 +0] = color.r;
+                buffer[y*buff_pitch + x*3 +1] = color.g;
+                buffer[y*buff_pitch + x*3 +2] = color.b;
+
+                Rect src_rect = {
+                    .x = 0,
+                    .y = 0,
+                    .w = 8,
+                    .h = 8,
+                };
+                Rect dst_rect = {
+                    .x = x,
+                    .y = y,
+                    .w = 8,
+                    .h = 8,
+                };
+                if (mask == 0xF0) {
+                    dst_rect.x = x+4;
+                }
+
+                BlitSurface(&buffer[0], src_rect, dst_buff, dst_rect, 4*3, video->pitch);
+            }
+        
+        }
+        
+    }
+    
+
+
+}
+
+
+int parse_video_encode(uint8_t* data_stream, uint8_t* video, uint8_t op)
+{
+    int offset = 0;
     video_buffer.encode_type[op]++;
     switch (op)
     {
@@ -325,9 +394,10 @@ void parse_video_encode(uint8_t* data_stream, uint8_t* video, uint8_t op)
     case 0x06:
         break;
     case 0x07:
-        patterned(data_stream, &video_buffer, video);
+        pattern_0x07(data_stream, &video_buffer, video);
         break;
     case 0x08:
+        pattern_0x08(data_stream, &video_buffer, video);
         break;
     case 0x09:
         break;
@@ -348,6 +418,9 @@ void parse_video_encode(uint8_t* data_stream, uint8_t* video, uint8_t op)
     default:
         break;
     }
+
+        offset = 8*3;
+    return offset;
 }
 
 void parse_video_data(uint8_t* buffer)
@@ -355,24 +428,25 @@ void parse_video_data(uint8_t* buffer)
     uint8_t* map_stream = video_buffer.map_stream;
     uint8_t* data_stream = buffer;
 
-    union Nibbles { 
-        uint8_t byte;
-        struct {
-            uint8_t low  : 4;
-            uint8_t high : 4;
-        };
-    };
-
     uint8_t* video = video_buffer.video_buffer;
 
-    for (int i = 0; i < video_buffer.map_size; i++)
-    {
-        Nibbles enc;
-        enc.byte = map_stream[i];
-        parse_video_encode(&data_stream[i], &video[i*3+0], enc.low);
-        parse_video_encode(&data_stream[i], &video[i*3+3], enc.high);
-        printf("opcode_v1:%02x opcode_v2:%02x   map_stream[%d]:%02x\n", enc.low, enc.high, i, map_stream[i]);
-    }
+    uint8_t mask = 0x0F;
+    int offset   = 0;
+    int pitch    = video_buffer.pitch;
+    int y        = 0;
 
-    // printf("what are we looking at? %d\n", buffer[0]);
+    for (int i = 0; i < video_buffer.map_size*2; i++)
+    {
+        mask = ~mask;
+        uint8_t enc = map_stream[i/2] & mask;
+        if (mask == 0xF0) {
+            enc >>= 4;
+        }
+
+        offset += parse_video_encode(&data_stream[i], &video[y*pitch + offset], enc);
+        if (offset >= video_buffer.pitch) {
+            offset = 0;
+            y+=8;
+        }
+    }
 }

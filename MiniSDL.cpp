@@ -7,19 +7,19 @@
 //src, src_rect, dst, dst_rect
 //both surfaces must be same pixel width (RGB/RGBA etc)
 //src_rect.w & h must be == dst_rect
-void BlitSurface(video* src, Rect src_rect, video* dst, Rect dst_rect)
+void BlitSurface(uint8_t* src, Rect src_rect, uint8_t* dst, Rect dst_rect, int src_pitch, int dst_pitch)
 {
     assert(src_rect.w == dst_rect.w);
     assert(src_rect.h == dst_rect.h);
     //set starting position for top left corner of rectangle to copy
-    uint8_t* src_pxls = &src->video_buffer[src_rect.y*src->pitch + src_rect.x*4];
-    uint8_t* dst_pxls = &dst->video_buffer[dst_rect.y*dst->pitch + dst_rect.x*4];
+    uint8_t* src_pxls = &src[src_rect.y*src_pitch + src_rect.x*4];
+    uint8_t* dst_pxls = &dst[dst_rect.y*dst_pitch + dst_rect.x*4];
 
     //copy each row of src rectangle to dst surface
     for (int row = 0; row < src_rect.h; row++) {
-        memcpy(dst_pxls, src_pxls, dst->pitch);
-        src_pxls += src->pitch;
-        dst_pxls += dst->pitch;
+        memcpy(dst_pxls, src_pxls, dst_pitch);
+        src_pxls += src_pitch;
+        dst_pxls += dst_pitch;
     }
 }
 
