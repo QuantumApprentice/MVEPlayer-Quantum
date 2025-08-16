@@ -1058,9 +1058,45 @@ int raw_pixels_0x0C(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff
         BlitSurface(&buffer[0], src_rect, dst_buff, src_rect, buff_pitch, video_buffer->pitch);
     }
 
-    // int offset = 16;
     return 16;
+}
 
+int raw_pixels_0x0D(uint8_t* data_stream, video*video_buffer, uint8_t* dst_buff, bool blit)
+{
+    uint8_t buffer[64*3];
+    int buff_pitch = 8*3;
+    // int dst_pitch = video_buffer->pitch;
+
+    uint8_t P[4];
+    memcpy(P, data_stream, sizeof(P));
+
+    palette* pal = video_buffer->pal;
+
+    int byte_index = 0;
+    for (int y = 0; y < 8; y+=4) {
+        for (int x = 0; x < 8; x+=4) {
+            palette color = pal[P[byte_index++]];
+
+            Rect dst_rect = {
+                .x = x,
+                .y = y,
+                .w = 4,
+                .h = 4,
+            };
+            PaintSurface(buffer, buff_pitch, dst_rect, color);
+        }
+    }
+    Rect src_rect = {
+        .x = 0,
+        .y = 0,
+        .w = 8,
+        .h = 8,
+    };
+    if (blit) {
+        BlitSurface(&buffer[0], src_rect, dst_buff, src_rect, buff_pitch, video_buffer->pitch);
+    }
+
+    return 4;
 }
 
 //set the whole 8x8 pixels a solid color
@@ -1098,8 +1134,8 @@ int parse_video_encode(uint8_t* data_stream, uint8_t* video, uint8_t op)
         true,       // 9 // pattern_0x09
         true,       // A // pattern_0x0A
         true,       // B // raw_pixels_0x0B
-        true,       // C // 
-        true,       // D // 
+        true,       // C // raw_pixels_0x0C
+        true,       // D // raw_pixels_0x0D
         true,       // E // solid_frame_0x0E
         true        // F // 
     };
@@ -1152,7 +1188,7 @@ int parse_video_encode(uint8_t* data_stream, uint8_t* video, uint8_t op)
         offset = raw_pixels_0x0C(data_stream, &video_buffer, video, paint[op]);
         break;
     case 0x0D:
-        offset = 4;
+        offset = raw_pixels_0x0D(data_stream, &video_buffer, video, paint[op]);
         break;
     case 0x0E:
         offset = solid_frame_0x0E(data_stream[0], &video_buffer, video, paint[op]);
