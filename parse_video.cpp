@@ -1026,13 +1026,40 @@ int raw_pixels_0x0B(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff
     return 64;
 }
 
-int raw_pixels_0x0C(uint8_t* data_stream, video* video_buffer, uint8_t* video, bool paint)
+int raw_pixels_0x0C(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff, bool blit)
 {
-    int offset = 16;
+    uint8_t buffer[64*3];
+    int buff_pitch = 8*3;
+    uint8_t P[16];
+    memcpy(P, data_stream, sizeof(P));
 
+    int byte_index = 0;
+    palette* pal = video_buffer->pal;
+    for (int y = 0; y < 8; y+=2) {
+        for (int x = 0; x < 8; x+=2) {
+            palette color = pal[P[byte_index++]];
+            Rect dst_rect = {
+                .x = x,
+                .y = y,
+                .w = 2,
+                .h = 2,
+            };
+            PaintSurface(buffer, buff_pitch, dst_rect, color);
+        }
+    }
 
+    Rect src_rect = {
+        .x = 0,
+        .y = 0,
+        .w = 8,
+        .h = 8,
+    };
+    if (blit) {
+        BlitSurface(&buffer[0], src_rect, dst_buff, src_rect, buff_pitch, video_buffer->pitch);
+    }
 
-    return offset;
+    // int offset = 16;
+    return 16;
 
 }
 
