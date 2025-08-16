@@ -209,7 +209,7 @@ void parse_decoding_map(uint8_t* buffer, int size)
 }
 
 //set the whole frame a solid color?
-int solid_frame_0x0E(uint8_t pal_index, video* video_buffer, uint8_t* dst_buff)
+int solid_frame_0x0E(uint8_t pal_index, video* video_buffer, uint8_t* dst_buff, bool paint)
 {
     Rect dst_rect;
     dst_rect.w = 8;
@@ -220,31 +220,32 @@ int solid_frame_0x0E(uint8_t pal_index, video* video_buffer, uint8_t* dst_buff)
     palette color = video_buffer->pal[pal_index];
     int pitch = video_buffer->pitch;
 
-    PaintSurface(dst_buff, pitch, dst_rect, color);
+    if (paint) {
+        PaintSurface(dst_buff, pitch, dst_rect, color);
+    }
 
     return 1;
 }
 
-int pattern_0x07(uint8_t* data_stream, video* video, uint8_t* dst_buff)
+int pattern_0x07(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool paint)
 {
     int offset = 0;
-    uint8_t P0 = data_stream[0];
-    uint8_t P1 = data_stream[1];
-
-    uint8_t P[2];
-    P[0] = data_stream[0];
-    P[1] = data_stream[1];
-
     int pitch  = video->pitch;
     palette* pal = video->pal;
 
-    uint8_t byte[8];
-    // if (P[0] <= P[1]) {
-    if (P0 <= P1) {
+    uint8_t P[2] = {
+        data_stream[0],
+        data_stream[1],
+    };
+
+    // printf("pattern 0x07: P[0]: %d P[1]: %d\n", P[0], P[1]);
+
+    uint8_t B[8];
+    if (P[0] <= P[1]) {
         offset = 10;
         for (int i = 0; i < 8; i++)
         {
-            byte[i] = data_stream[i+2];
+            B[i] = data_stream[i+2];
         }
 
         uint8_t mask = 128;
@@ -252,21 +253,28 @@ int pattern_0x07(uint8_t* data_stream, video* video, uint8_t* dst_buff)
         {
             for (int x = 0; x < 8; x++)
             {
-                bool indx = byte[y] & (mask >> x);
+                bool pal_index = B[y] & (mask >> x);
 
                 int pos = y*pitch + x;
-                palette color = pal[P[indx]];
+                palette color = pal[P[pal_index]];
 
-                dst_buff[pos + 0] = color.r;
-                dst_buff[pos + 1] = color.g;
-                dst_buff[pos + 2] = color.b;
+                // color.r = 255;
+                // color.g = 255;
+                // color.b = 255;
+
+                if (paint) {
+                    dst_buff[pos + 0] = color.r;
+                    dst_buff[pos + 1] = color.g;
+                    dst_buff[pos + 2] = color.b;
+                }
+
             }
         }
 
     } else {
         offset = 4;
-        byte[0] = data_stream[2];
-        byte[1] = data_stream[3];
+        B[0] = data_stream[2];
+        B[1] = data_stream[3];
         // 22 22 22 22 22 22 22 22 ; f == 1 0 1 1
         // 22 22 22 22 22 22 22 22 ; 
         // 22 22 22 22 22 22 22 22 ; f == 1 1 1 1
@@ -281,39 +289,46 @@ int pattern_0x07(uint8_t* data_stream, video* video, uint8_t* dst_buff)
         uint8_t mask_offset = 0;
         for (int y = 0; y < 8; y+=2)
         {
+            if (y >= 4) {
+                byte_index = 1;
+            }
             for (int x = 0; x < 8; x+=2)
             {
-                bool pal_index = byte[byte_index] & (mask >> mask_offset);
-                mask_offset++;
+                bool pal_index = B[byte_index] & (mask >> mask_offset++);
                 if (mask_offset >= 8) {
                     mask_offset = 0;
                 }
                 palette color = pal[P[pal_index]];
 
-                int pos = y*pitch + x;
                 Rect out = {
-                    out.w = 2,
-                    out.h = 2,
-                    out.x = x,
-                    out.y = y
+                    .x = x,
+                    .y = y,
+                    .w = 2,
+                    .h = 2,
                 };
 
-                PaintSurface(dst_buff, pitch, out, color);
+                // color.r = 255;
+                // color.g = 255;
+                // color.b = 255;
+
+                if (paint) {
+                    PaintSurface(dst_buff, pitch, out, color);
+                }
+
             }
         }
     }
     return offset;
 }
 
-int pattern_0x08(uint8_t* data_stream, video* video, uint8_t* dst_buff)
+int pattern_0x08(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool blit)
 {
     int offset = 0;
 #pragma pack(push,1)
     struct quadrant {
         uint8_t P0; uint8_t P1; uint8_t B0; uint8_t B1;
     };
-    struct halfpart
-    {
+    struct halfpart {
         uint8_t P0;
         uint8_t P1;
         uint8_t B0;
@@ -415,7 +430,9 @@ int pattern_0x08(uint8_t* data_stream, video* video, uint8_t* dst_buff)
             default:
                 break;
             }
-            BlitSurface(&quad_buffer[0], src_rect, dst_buff, dst_rect, quad_buff_pitch, video->pitch);
+            if (blit) {
+                BlitSurface(&quad_buffer[0], src_rect, dst_buff, dst_rect, quad_buff_pitch, video->pitch);
+            }
         }
     } else {
         offset = 12;
@@ -493,7 +510,9 @@ int pattern_0x08(uint8_t* data_stream, video* video, uint8_t* dst_buff)
                 default:
                     break;
                 }
-                BlitSurface(&half_buffer[0], src_rect, dst_buff, dst_rect, half_buff_pitch, video->pitch);
+                if (blit) {
+                    BlitSurface(&half_buffer[0], src_rect, dst_buff, dst_rect, half_buff_pitch, video->pitch);
+                }
             }
         } else {
             //index 0 => top half
@@ -573,7 +592,9 @@ int pattern_0x08(uint8_t* data_stream, video* video, uint8_t* dst_buff)
                 default:
                     break;
                 }
-                BlitSurface(&half_buffer[0], src_rect, dst_buff, dst_rect, half_buff_pitch, video->pitch);
+                if (blit) {
+                    BlitSurface(&half_buffer[0], src_rect, dst_buff, dst_rect, half_buff_pitch, video->pitch);
+                }
             }
         }
     }
@@ -581,11 +602,29 @@ int pattern_0x08(uint8_t* data_stream, video* video, uint8_t* dst_buff)
     return offset;
 }
 
+int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool blit)
+{
+    
+}
+
 
 int parse_video_encode(uint8_t* data_stream, uint8_t* video, uint8_t op)
 {
-    int offset = 0;
     video_buffer.encode_type[op]++;
+    bool paint[5] = {
+        true,       // pattern_0x07
+        true,       // pattern_0x08
+        true,       // solid_frame_0x0E
+        true,
+        true
+    };
+
+    // if (op != 0x07 && op != 0x08 && op != 0x0E) {
+    //     printf("non-op op: %0x\n", op);
+    // }
+
+
+    int offset = 0;
     switch (op)
     {
     case 0x00:
@@ -610,10 +649,10 @@ int parse_video_encode(uint8_t* data_stream, uint8_t* video, uint8_t op)
         offset = 0;
         break;
     case 0x07:
-        offset = pattern_0x07(data_stream, &video_buffer, video);
+        offset = pattern_0x07(data_stream, &video_buffer, video, paint[0]);
         break;
     case 0x08:
-        offset = pattern_0x08(data_stream, &video_buffer, video);
+        offset = pattern_0x08(data_stream, &video_buffer, video, paint[1]);
         break;
     case 0x09:
         if (data_stream[0] <= data_stream[1] && data_stream[2] <= data_stream[3]) {
@@ -647,7 +686,7 @@ int parse_video_encode(uint8_t* data_stream, uint8_t* video, uint8_t op)
         offset = 4;
         break;
     case 0x0E:
-        offset = solid_frame_0x0E(data_stream[0], &video_buffer, video);
+        offset = solid_frame_0x0E(data_stream[0], &video_buffer, video, paint[2]);
         break;
     case 0x0F:
         offset = 2;

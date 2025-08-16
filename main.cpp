@@ -17,6 +17,7 @@
 
 #include "parse_video.h"
 #include "parse_audio.h"
+#include <malloc.h>
 
 video video_buffer;
 
@@ -230,7 +231,6 @@ int get_filesize(FILE* fileptr)
 void video_player()
 {
     static bool success = false;
-    static FILE* fileptr = NULL;
     char filename[] = "../../testing/IPLOGO.MVE";
 
     if (video_buffer.video_buffer) {
@@ -257,16 +257,29 @@ void video_player()
     if (ImGui::Button("Play MVE")) {
         printf("Parsing IPLOGO.MVE\n");
 
-        fileptr = open_file(filename);
-        if (!fileptr) {
+        if (video_buffer.fileptr) {
+            fclose(video_buffer.fileptr);
+        }
+        if (video_buffer.video_buffer) {
+            free(video_buffer.video_buffer);
+            video_buffer.video_buffer = NULL;
+        }
+
+        video_buffer.fileptr = open_file(filename);
+        if (!video_buffer.fileptr) {
             success = false;
         }
-        video_buffer.file_size = get_filesize(fileptr);
-        success = parse_header(fileptr);
+        video_buffer.file_size = get_filesize(video_buffer.fileptr);
+        success = parse_header(video_buffer.fileptr);
+        video_buffer.frame_count = 0;
+        for (int i = 0; i < 16; i++)
+        {
+            video_buffer.encode_type[i] = 0;
+        }
     }
 
     if (success) {
-        parse_chunk(fileptr);
+        parse_chunk(video_buffer.fileptr);
     } else {
         // fclose(fileptr);
         ImGui::Text("Unable to open %s", filename);
@@ -285,7 +298,9 @@ enum CHUNK {
 #define buffsize (2)
 void parse_chunk(FILE* fileptr)
 {
-    static int frame = 0;
+    if (!fileptr) {
+        return;
+    }
     int position = ftell(fileptr);
     if (position >= video_buffer.file_size || position < 0) {
         return;
@@ -319,7 +334,7 @@ void parse_chunk(FILE* fileptr)
     case CHUNK_video:
         printf("processing video\n");
         parse_video_chunk(fileptr, info);
-        frame++;
+        video_buffer.frame_count++;
         break;
     case CHUNK_shutdown:
         printf("shutting down\n");
@@ -330,6 +345,7 @@ void parse_chunk(FILE* fileptr)
         printf("end of file\n");
         fseek(fileptr, buffer[0], SEEK_CUR);
         fclose(fileptr);
+        video_buffer.fileptr = NULL;
         //TODO: nothing?
         break;
 
@@ -338,5 +354,5 @@ void parse_chunk(FILE* fileptr)
         break;
     }
 
-    printf("%d frames processed\n", frame);
+    printf("%d frames processed\n", video_buffer.frame_count);
 }

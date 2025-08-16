@@ -14,7 +14,6 @@ union palette {
         uint8_t r;
         uint8_t g;
         uint8_t b;
-        // uint8_t a;
     };
     uint32_t color : 24;    //RGB
 };
@@ -25,6 +24,7 @@ struct timer_struct {
 #pragma pack(pop)
 
 struct video {
+    FILE* fileptr = NULL;
     uint8_t* video_buffer = NULL;
     uint8_t* back_buffer = NULL;
     uint32_t video_texture;
@@ -41,6 +41,7 @@ struct video {
     int block_w;
     int block_h;
     int encode_type[0xf+1];
+    int frame_count = 0;
 };
 extern video video_buffer;
 
