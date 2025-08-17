@@ -212,6 +212,142 @@ void parse_decoding_map(uint8_t* buffer, int size)
     memcpy(video_buffer.map_stream, buffer, size);
 }
 
+int cornerCopy_0x02(uint8_t* data_stream, video*video, uint8_t* dst_buff, bool blit)
+{
+    uint8_t buffer[64*3];
+    int buffer_pitch = 8*3;
+    uint8_t B = data_stream[0];
+
+    Rect src_rect = {
+        .w = 8,
+        .h = 8
+    };
+    Rect buff_rect = {
+        .x = 0,
+        .y = 0,
+        .w = 8,
+        .h = 8
+    };
+
+    if (B < 56) {
+        src_rect.x = 8+(B%7);
+        src_rect.y =    B/7;
+    } else {
+        src_rect.x = -14 + ((B-56) %29);
+        src_rect.y =   8 + ((B-56) /29);
+    }
+
+    BlitSurface(video_buffer.video_buffer, src_rect, buffer, buff_rect, video_buffer.pitch, buffer_pitch);
+
+    if (blit) {
+        BlitSurface(buffer, buff_rect, dst_buff, buff_rect, buffer_pitch, video_buffer.pitch);
+    }
+
+    return 1;
+}
+
+int cornerCopy_0x03(uint8_t* data_stream, uint8_t* dst_buff, bool blit)
+{
+    uint8_t buffer[64*3];
+    int buff_pitch = 8*3;
+    uint8_t B = data_stream[0];
+
+    Rect buff_rect = {
+        .x = 0,
+        .y = 0,
+        .w = 8,
+        .h = 8,
+    };
+    Rect src_rect = {
+        .w = 8,
+        .h = 8
+    };
+
+    if (B < 56) {
+        src_rect.x = -(8+(B%7));
+        src_rect.y = -   (B/7);
+    } else {
+        src_rect.x = -(-14 + ((B-56) %29));
+        src_rect.y = -(  8 + ((B-56) /29));
+    }
+
+    BlitSurface(video_buffer.video_buffer, src_rect, buffer, buff_rect, video_buffer.pitch, buff_pitch);
+
+    if (blit) {
+        BlitSurface(buffer, buff_rect, dst_buff, buff_rect, buff_pitch, video_buffer.pitch);
+    }
+
+    return 1;
+}
+
+int symmetricCopy_0x04(uint8_t* data_stream, uint8_t* dst_buff, bool blit)
+{
+    uint8_t buffer[64*3];
+    int buff_pitch = 8*3;
+#pragma pack(push,1)
+    struct byte {
+        uint8_t BL : 4;
+        uint8_t BH : 4;
+    } B;
+#pragma pack(pop)
+    memcpy(&B, data_stream, sizeof(B));
+
+    Rect buff_rect = {
+        .x = 0,
+        .y = 0,
+        .w = 8,
+        .h = 8,
+    };
+    Rect src_rect = {
+        .x = -8 + B.BL,
+        .y = -8 + B.BH,
+        .w = 8,
+        .h = 8
+    };
+
+    //copy from "current" frame?
+    BlitSurface(video_buffer.video_buffer, src_rect, buffer, buff_rect, video_buffer.pitch, buff_pitch);
+
+    if (blit) {
+        BlitSurface(buffer, buff_rect, dst_buff, buff_rect, buff_pitch, video_buffer.pitch);
+    }
+
+    return 1;
+}
+
+int symmetricCopy_0x05(uint8_t* data_stream, uint8_t* dst_buff, bool blit)
+{
+    uint8_t buffer[64*3];
+    int buff_pitch = 8*3;
+
+    int8_t B[2] = {
+        data_stream[0],
+        data_stream[1]
+    };
+
+    Rect buff_rect = {
+        .x = 0,
+        .y = 0,
+        .w = 8,
+        .h = 8,
+    };
+    Rect src_rect = {
+        .x = B[0],
+        .y = B[1],
+        .w = 8,
+        .h = 8
+    };
+
+    //copy from "current" frame?
+    BlitSurface(video_buffer.video_buffer, src_rect, buffer, buff_rect, video_buffer.pitch, buff_pitch);
+
+    if (blit) {
+        BlitSurface(buffer, buff_rect, dst_buff, buff_rect, buff_pitch, video_buffer.pitch);
+    }
+
+    return 2;
+}
+
 int pattern_0x07(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool paint)
 {
     int offset = 0;
@@ -1199,16 +1335,16 @@ int parse_video_encode(uint8_t* data_stream, uint8_t* video, uint8_t op)
         offset = 0;
         break;
     case 0x02:
-        offset = 1;
+        offset = cornerCopy_0x02(data_stream, &video_buffer, video, allow_blit[op]);
         break;
     case 0x03:
-        offset = 1;
+        offset = cornerCopy_0x03(data_stream, video, allow_blit[op]);
         break;
     case 0x04:
-        offset = 1;
+        offset = symmetricCopy_0x04(data_stream, video, allow_blit[op]);
         break;
     case 0x05:
-        offset = 2;
+        offset = symmetricCopy_0x05(data_stream, video, allow_blit[op]);
         break;
     case 0x06:
         offset = 0;
@@ -1263,19 +1399,23 @@ void parse_video_data(uint8_t* buffer)
 
     for (int i = 0; i < video_buffer.map_size*2; i++)
     {
-        mask = ~mask;
-        uint8_t enc = map_stream[i/2] & mask;
-        if (mask == 0xF0) {
-            enc >>= 4;
-        }
+    // for (int y = 0; y < video_buffer.block_h; y++) {
+    //     for (int x = 0; x < video_buffer.block_w; x++) {
+            mask = ~mask;
+            uint8_t enc = map_stream[i/2] & mask;
+            // uint8_t enc = map_stream[y*video_buffer.block_w + x] & mask;
+            if (mask == 0xF0) {
+                enc >>= 4;
+            }
 
-        // printf("enc: %0x  data_offset: %d\n", enc, data_offset);
-        data_offset += parse_video_encode(&data_stream[data_offset], &video[y*pitch + buff_offset], enc);
+            // printf("enc: %0x  data_offset: %d\n", enc, data_offset);
+            data_offset += parse_video_encode(&data_stream[data_offset], &video[y*pitch + buff_offset], enc);
 
-        buff_offset += 8*3;
-        if (buff_offset >= video_buffer.pitch) {
-            buff_offset = 0;
-            y += 8;
-        }
+            buff_offset += 8*3;
+            if (buff_offset >= video_buffer.pitch) {
+                buff_offset = 0;
+                y += 8;
+            }
+        // }
     }
 }

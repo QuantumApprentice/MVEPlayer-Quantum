@@ -17,7 +17,7 @@ void BlitSurface(uint8_t* src, Rect src_rect, uint8_t* dst, Rect dst_rect, int s
 
     //copy each row of src rectangle to dst surface
     for (int row = 0; row < src_rect.h; row++) {
-        memcpy(dst_pxls, src_pxls, src_pitch);
+        memcpy(dst_pxls, src_pxls, dst_rect.w*3);     //src_pitch);
         src_pxls += src_pitch;
         dst_pxls += dst_pitch;
     }
@@ -49,7 +49,7 @@ void ClearSurface(video* dst)
         return;
     }
     uint8_t* pxls = dst->video_buffer;
-    memset(pxls, 0, dst->render_w*dst->render_h);
+    memset(pxls, 0, dst->render_w*dst->render_h*dst->pitch);
 }
 
 void FreeSurface(video* src)
