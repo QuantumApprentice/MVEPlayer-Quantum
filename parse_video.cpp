@@ -1100,16 +1100,19 @@ int raw_pixels_0x0D(uint8_t* data_stream, video*video_buffer, uint8_t* dst_buff,
 }
 
 //set the whole 8x8 pixels a solid color
-int solid_frame_0x0E(uint8_t pal_index, video* video_buffer, uint8_t* dst_buff, bool paint)
+int solid_frame_0x0E(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff, bool paint)
 {
-    Rect dst_rect;
-    dst_rect.w = 8;
-    dst_rect.h = 8;
-    dst_rect.x = 0;
-    dst_rect.y = 0;
+    uint8_t pal_index = data_stream[0];
+    Rect dst_rect = {
+        .x = 0,
+        .y = 0,
+        .w = 8,
+        .h = 8,
+    };
 
     palette color = video_buffer->pal[pal_index];
     int pitch = video_buffer->pitch;
+    printf("pal_index: %d  RGB %d%d%d\n", pal_index, color.r, color.g, color.b);
 
     if (paint) {
         PaintSurface(dst_buff, pitch, dst_rect, color);
@@ -1118,10 +1121,51 @@ int solid_frame_0x0E(uint8_t pal_index, video* video_buffer, uint8_t* dst_buff, 
     return 1;
 }
 
+int dithered_0x0F(uint8_t* data_stream, video*video_buffer, uint8_t* dst_buff, bool blit)
+{
+    uint8_t buffer[64*3];
+    int buff_pitch = 8*3;
+    uint8_t P[2] = {
+        data_stream[0],
+        data_stream[1]
+    };
+
+    palette* pal = video_buffer->pal;
+    palette color1 = pal[P[0]];
+    palette color2 = pal[P[1]];
+
+    for (int i = 0; i < 64; i+=2)
+    {
+        // buffer[i*3] = color1.color;
+        buffer[i*3 +0] = color1.r;
+        buffer[i*3 +1] = color1.g;
+        buffer[i*3 +2] = color1.b;
+    }
+    for (int i = 1; i < 64; i+=2)
+    {
+        // buffer[i*3] = color2.color;
+        buffer[i*3 +0] = color2.r;
+        buffer[i*3 +1] = color2.g;
+        buffer[i*3 +2] = color2.b;
+    }
+
+    Rect dst_rect = {
+        .x = 0,
+        .y = 0,
+        .w = 8,
+        .h = 8
+    };
+    if (blit) {
+        BlitSurface(buffer, dst_rect, dst_buff, dst_rect, buff_pitch, video_buffer->pitch);
+    }
+
+    return 2;
+}
+
 int parse_video_encode(uint8_t* data_stream, uint8_t* video, uint8_t op)
 {
     video_buffer.encode_type[op]++;
-    bool paint[16] = {
+    bool allow_blit[16] = {
         true,       // 0 // 
         true,       // 1 // 
         true,       // 2 // 
@@ -1137,7 +1181,7 @@ int parse_video_encode(uint8_t* data_stream, uint8_t* video, uint8_t op)
         true,       // C // raw_pixels_0x0C
         true,       // D // raw_pixels_0x0D
         true,       // E // solid_frame_0x0E
-        true        // F // 
+        true        // F // dithered_0x0F
     };
 
     // if (op != 0x07 && op != 0x08 && op != 0x0E) {
@@ -1170,31 +1214,31 @@ int parse_video_encode(uint8_t* data_stream, uint8_t* video, uint8_t op)
         offset = 0;
         break;
     case 0x07:
-        offset = pattern_0x07(data_stream, &video_buffer, video, paint[op]);
+        offset = pattern_0x07(data_stream, &video_buffer, video, allow_blit[op]);
         break;
     case 0x08:
-        offset = pattern_0x08(data_stream, &video_buffer, video, paint[op]);
+        offset = pattern_0x08(data_stream, &video_buffer, video, allow_blit[op]);
         break;
     case 0x09:
-        offset = pattern_0x09(data_stream, &video_buffer, video, paint[op]);
+        offset = pattern_0x09(data_stream, &video_buffer, video, allow_blit[op]);
         break;
     case 0x0A:
-        offset = pattern_0x0A(data_stream, &video_buffer, video, paint[op]);
+        offset = pattern_0x0A(data_stream, &video_buffer, video, allow_blit[op]);
         break;
     case 0x0B:
-        offset = raw_pixels_0x0B(data_stream, &video_buffer, video, paint[op]);
+        offset = raw_pixels_0x0B(data_stream, &video_buffer, video, allow_blit[op]);
         break;
     case 0x0C:
-        offset = raw_pixels_0x0C(data_stream, &video_buffer, video, paint[op]);
+        offset = raw_pixels_0x0C(data_stream, &video_buffer, video, allow_blit[op]);
         break;
     case 0x0D:
-        offset = raw_pixels_0x0D(data_stream, &video_buffer, video, paint[op]);
+        offset = raw_pixels_0x0D(data_stream, &video_buffer, video, allow_blit[op]);
         break;
     case 0x0E:
-        offset = solid_frame_0x0E(data_stream[0], &video_buffer, video, paint[op]);
+        offset = solid_frame_0x0E(data_stream, &video_buffer, video, allow_blit[op]);
         break;
     case 0x0F:
-        offset = 2;
+        offset = dithered_0x0F(data_stream, &video_buffer, video, allow_blit[op]);
         break;
 
     default:
@@ -1225,7 +1269,7 @@ void parse_video_data(uint8_t* buffer)
             enc >>= 4;
         }
 
-        printf("enc: %0x  data_offset: %d\n", enc, data_offset);
+        // printf("enc: %0x  data_offset: %d\n", enc, data_offset);
         data_offset += parse_video_encode(&data_stream[data_offset], &video[y*pitch + buff_offset], enc);
 
         buff_offset += 8*3;
