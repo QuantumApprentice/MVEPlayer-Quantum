@@ -228,10 +228,28 @@ int get_filesize(FILE* fileptr)
     return file_len;
 }
 
+void filter_buttons(ImVec2 pos)
+{
+    int spacing = ImGui::GetTextLineHeightWithSpacing();
+    bool* allow_blit = video_buffer.allow_blit;
+    for (int i = 0; i < 0xF; i++)
+    {
+        ImGui::SetCursorPos(ImVec2(pos.x, pos.y + (i+1)*spacing));
+        char button[10];
+        snprintf(button, 10, "0x%0x", i);
+        if (ImGui::Button(button)) {
+            allow_blit[i] = !allow_blit[i];
+        }
+        ImGui::SameLine();
+        ImGui::Text(allow_blit[i] ? "On" : "Off");
+    }
+}
+
 void video_player()
 {
     static bool success = false;
     char filename[] = "../../testing/IPLOGO.MVE";
+    static ImVec2 pos;
 
     if (video_buffer.video_buffer) {
         ImVec2 uv_min = {0, 0};
@@ -245,6 +263,8 @@ void video_player()
             video_buffer.video_texture,
             size, uv_min, uv_max
         );
+        ImGui::SameLine();
+        pos = ImGui::GetCursorPos();
         // ImGuiWindow *window = ImGui::GetCurrentWindow();
         //TODO: change top_corner() for img_pos passed in from outside
         // window->DrawList->AddImage(
@@ -279,6 +299,7 @@ void video_player()
     }
 
     if (success) {
+        filter_buttons(pos);
         parse_chunk(video_buffer.fileptr);
     } else {
         // fclose(fileptr);

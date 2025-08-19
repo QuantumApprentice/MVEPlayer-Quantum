@@ -42,6 +42,25 @@ struct video {
     int block_h;
     int encode_type[0xf+1];
     int frame_count = 0;
+    bool allow_blit[16] = {
+        true,       // 0 // 
+        true,       // 1 // 
+        true,       // 2 // 
+        true,       // 3 // 
+        true,       // 4 // 
+        true,       // 5 // 
+        true,       // 6 // 
+        true,       // 7 // pattern_0x07
+        true,       // 8 // pattern_0x08
+        true,       // 9 // pattern_0x09
+        true,       // A // pattern_0x0A
+        true,       // B // raw_pixels_0x0B
+        true,       // C // raw_pixels_0x0C
+        true,       // D // raw_pixels_0x0D
+        true,       // E // solid_frame_0x0E
+        true        // F // dithered_0x0F
+    };
+
 };
 extern video video_buffer;
 
