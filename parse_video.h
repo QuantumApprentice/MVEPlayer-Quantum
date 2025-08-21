@@ -29,23 +29,32 @@ struct video {
     uint8_t* back_buffer = NULL;
     uint8_t* pxls = NULL;
 
-    uint32_t video_texture;
-    int file_size;
-    uint8_t* map_stream = NULL;
+    int pitch;
+    int buff_size = 0;
+
     int map_size;
+    uint8_t* map_stream = NULL;
+
+    uint8_t block_buffer[64*3];
+    int block_pitch = 8*3;
+    uint32_t video_texture;
+
+    int file_size;
+
     palette pal[256];
     timer_struct timer;
+
     int video_size = 0;
-    int buff_size = 0;
     int render_w;
     int render_h;
-    int pitch;
+
     int block_w;
     int block_h;
-    int encode_type[0xf+1];
+
+    int encode_type[0xf];
     int frame_count = 0;
     bool allow_blit[16] = {
-        true,       // 0 // 
+        true,       // 0 // blockCopy_0x00
         true,       // 1 // 
         true,       // 2 // cornerCopy_0x02
         true,       // 3 // cornerCopy_0x03
