@@ -245,12 +245,22 @@ void filter_buttons(ImVec2 pos)
         ImGui::SameLine();
         ImGui::Text("%d", video_buffer.encode_type[i]);
     }
+
+    ImGui::SetCursorPos(ImVec2(pos.x, pos.y + spacing*(0xf+1)));
+    if (ImGui::Button("All Off")) {
+        for (int i = 0; i < 0xF; i++)
+        {
+            allow_blit[i] = false;
+        }
+        
+    }
 }
 
 void video_player()
 {
     static bool success = false;
     char filename[] = "../../testing/IPLOGO.MVE";
+    // char filename[] = "../../testing/final.mve";
     static ImVec2 pos;
 
     if (video_buffer.pxls) {

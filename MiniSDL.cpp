@@ -7,7 +7,7 @@
 //src, src_rect, dst, dst_rect
 //both surfaces must be same pixel width (RGB/RGBA etc)
 //src_rect.w & h must be == dst_rect
-void BlitSurface(uint8_t* src, Rect src_rect, uint8_t* dst, Rect dst_rect, int src_pitch, int dst_pitch)
+void BlitSurface(uint8_t* src, Rect src_rect, int src_pitch, uint8_t* dst, Rect dst_rect, int dst_pitch)
 {
     assert(src_rect.w == dst_rect.w);
     assert(src_rect.h == dst_rect.h);
