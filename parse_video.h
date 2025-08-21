@@ -25,8 +25,10 @@ struct timer_struct {
 
 struct video {
     FILE* fileptr = NULL;
-    uint8_t* video_buffer = NULL;
+    uint8_t* frnt_buffer = NULL;
     uint8_t* back_buffer = NULL;
+    uint8_t* pxls = NULL;
+
     uint32_t video_texture;
     int file_size;
     uint8_t* map_stream = NULL;
@@ -45,11 +47,11 @@ struct video {
     bool allow_blit[16] = {
         true,       // 0 // 
         true,       // 1 // 
-        true,       // 2 // 
-        true,       // 3 // 
-        true,       // 4 // 
-        true,       // 5 // 
-        true,       // 6 // 
+        true,       // 2 // cornerCopy_0x02
+        true,       // 3 // cornerCopy_0x03
+        true,       // 4 // symmetricCopy_0x04
+        true,       // 5 // symmetricCopy_0x05
+        true,       // 6 // no-op
         true,       // 7 // pattern_0x07
         true,       // 8 // pattern_0x08
         true,       // 9 // pattern_0x09

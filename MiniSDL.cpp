@@ -43,23 +43,25 @@ void PaintSurface(uint8_t* dst, int pitch, Rect brush_rect, palette color)
     }
 }
 
+//TODO: replace these with something that makes sense
+//      or just delete them
 void ClearSurface(video* dst)
 {
     if (dst == nullptr) {
         return;
     }
-    uint8_t* pxls = dst->video_buffer;
+    uint8_t* pxls = dst->pxls;
     memset(pxls, 0, dst->render_w*dst->render_h*dst->pitch);
 }
 
-void FreeSurface(video* src)
-{
-    uint8_t* pxls_ptr = ((uint8_t*)src) + sizeof(video);
-    if (src->video_buffer != pxls_ptr) {
-        free(src->video_buffer);
-    }
-    free(src);
-}
+// void FreeSurface(video* src)
+// {
+//     uint8_t* pxls_ptr = ((uint8_t*)src) + sizeof(video);
+//     if (src->video_buffer != pxls_ptr) {
+//         free(src->video_buffer);
+//     }
+//     free(src);
+// }
 
 // void print_SURFACE_pxls(video* src)
 // {

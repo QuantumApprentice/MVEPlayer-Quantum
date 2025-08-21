@@ -242,6 +242,8 @@ void filter_buttons(ImVec2 pos)
         }
         ImGui::SameLine();
         ImGui::Text(allow_blit[i] ? "On" : "Off");
+        ImGui::SameLine();
+        ImGui::Text("%d", video_buffer.encode_type[i]);
     }
 }
 
@@ -251,7 +253,7 @@ void video_player()
     char filename[] = "../../testing/IPLOGO.MVE";
     static ImVec2 pos;
 
-    if (video_buffer.video_buffer) {
+    if (video_buffer.pxls) {
         ImVec2 uv_min = {0, 0};
         ImVec2 uv_max = {1.0, 1.0};
         int width   = video_buffer.render_w;
@@ -280,9 +282,12 @@ void video_player()
         if (video_buffer.fileptr) {
             fclose(video_buffer.fileptr);
         }
-        if (video_buffer.video_buffer) {
-            free(video_buffer.video_buffer);
-            video_buffer.video_buffer = NULL;
+        if (video_buffer.pxls) {
+            free(video_buffer.frnt_buffer);
+            free(video_buffer.back_buffer);
+            video_buffer.pxls = NULL;
+            video_buffer.frnt_buffer = NULL;
+            video_buffer.back_buffer = NULL;
         }
 
         video_buffer.fileptr = open_file(filename);
@@ -316,7 +321,6 @@ enum CHUNK {
     CHUNK_end         =  5,
 };
 
-#define buffsize (2)
 void parse_chunk(FILE* fileptr)
 {
     if (!fileptr) {
@@ -328,10 +332,7 @@ void parse_chunk(FILE* fileptr)
     }
 
     chunkinfo info;
-    uint16_t buffer[buffsize];
-    fread(buffer, sizeof(buffer), 1, fileptr);
-    info.size = buffer[0];
-    info.type = buffer[1];
+    fread(&info, sizeof(info), 1, fileptr);
     // printf("length: %04x : %d\n", info.size, info.size);
     // printf("type:   %04x\n", info.type);
 
@@ -340,12 +341,12 @@ void parse_chunk(FILE* fileptr)
     case CHUNK_init_audio:
         printf("initing audio\n");
         init_audio(fileptr);
-        fseek(fileptr, buffer[0], SEEK_CUR);
+        fseek(fileptr, info.size, SEEK_CUR);
         //TODO: init the flipping audio
         break;
     case CHUNK_audio:
         printf("skipping processing audio\n");
-        fseek(fileptr, buffer[0], SEEK_CUR);
+        fseek(fileptr, info.size, SEEK_CUR);
         //TODO: process the audio
         break;
     case CHUNK_init_video:
@@ -359,12 +360,12 @@ void parse_chunk(FILE* fileptr)
         break;
     case CHUNK_shutdown:
         printf("shutting down\n");
-        fseek(fileptr, buffer[0], SEEK_CUR);
+        fseek(fileptr, info.size, SEEK_CUR);
         //TODO: handle shutdown
         break;
     case CHUNK_end:
         printf("end of file\n");
-        fseek(fileptr, buffer[0], SEEK_CUR);
+        fseek(fileptr, info.size, SEEK_CUR);
         fclose(fileptr);
         video_buffer.fileptr = NULL;
         //TODO: nothing?

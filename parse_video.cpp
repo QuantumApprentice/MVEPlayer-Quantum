@@ -87,17 +87,20 @@ void init_video_buffer(uint8_t* buffer, uint8_t version)
         printf("video buffer size: %d\n", buff_size);
     }
 
-    video_buffer.video_buffer = (uint8_t*)malloc(video_buffer.render_w*video_buffer.render_h*3);
-    video_buffer.video_texture = gen_texture(video_buffer.render_w, video_buffer.render_h, video_buffer.video_buffer);
+    video_buffer.frnt_buffer = (uint8_t*)calloc(1,video_buffer.render_w*video_buffer.render_h*3);
+    video_buffer.back_buffer = (uint8_t*)calloc(1,video_buffer.render_w*video_buffer.render_h*3);
+    video_buffer.pxls = video_buffer.frnt_buffer;
+    video_buffer.video_texture = gen_texture(video_buffer.render_w, video_buffer.render_h, video_buffer.pxls);
 }
 
 void init_palette(uint8_t* buffer)
 {
-    struct pal_info {
+    struct PAL_Info {
         uint16_t start;
         uint16_t count;
-        uint8_t data[];
-    } pal_info;
+    };
+
+    PAL_Info pal_info;
     memcpy(&pal_info, buffer, sizeof(pal_info));
 
     if (debug) {
@@ -116,9 +119,9 @@ void init_palette(uint8_t* buffer)
     // memcpy(&video_buffer.pal[i], &buffer[4], pal_info.count*3);
     for (int i = 0; i < pal_info.count; i++)
     {   //shift to get the palette color correct
-        video_buffer.pal[i].r = buffer[i*3 + 4 + 0] << 2;
-        video_buffer.pal[i].g = buffer[i*3 + 4 + 1] << 2;
-        video_buffer.pal[i].b = buffer[i*3 + 4 + 2] << 2;
+        video_buffer.pal[pal_info.start + i].r = buffer[i*3 + 4 + 0] << 2;
+        video_buffer.pal[pal_info.start + i].g = buffer[i*3 + 4 + 1] << 2;
+        video_buffer.pal[pal_info.start + i].b = buffer[i*3 + 4 + 2] << 2;
     }
 
 
@@ -133,22 +136,22 @@ void init_palette(uint8_t* buffer)
 
 void init_video(FILE* fileptr, chunkinfo info)
 {
-    uint8_t* wut = (uint8_t*)calloc(1, info.size);
-    fread(wut, info.size, 1, fileptr);
+    uint8_t* chunk = (uint8_t*)calloc(1, info.size);
+    fread(chunk, info.size, 1, fileptr);
     printf("chunk -- size: %d type: %d\n", info.size, info.type);
 
     int offset = 0;
     while (offset < info.size)
     {
         opcodeinfo op;
-        memcpy(&op, &wut[offset], sizeof(op));
-        printf("op -- len: %d, type: %04x, ver: %d\n", op.size, op.type, op.version);
+        memcpy(&op, &chunk[offset], sizeof(op));
+        printf("op -- len: %d, type: 0x%02X, ver: %d\n", op.size, op.type, op.version);
 
         offset += 4;
-        parse_opcode(op, &wut[offset]);
+        parse_opcode(op, &chunk[offset]);
         offset += op.size;
     }
-    free(wut);
+    free(chunk);
 }
 
 void create_timer(uint8_t* buffer)
@@ -170,18 +173,20 @@ void send_buffer_to_display(uint8_t* buffer)
 
     memcpy(&info, buffer, sizeof(info));
 
-    printf("pal start: %d, pal count: %d, unkown: %d\n", info.start, info.count, info.unknown);
-
-
     //TODO: should I use palette to convert pixels here?
     //      instead of during the paint process?
+    printf("pal start: %d, pal count: %d, unkown: %d\n", info.start, info.count, info.unknown);
 
     GLuint tex = video_buffer.video_texture;
     int w      = video_buffer.render_w;
     int h      = video_buffer.render_h;
     //TODO: swap buffers
-    uint8_t* pxls = video_buffer.video_buffer;
-    blit_to_texture(tex, pxls, w, h);
+    if (video_buffer.pxls == video_buffer.frnt_buffer) {
+        video_buffer.pxls = video_buffer.back_buffer;
+    } else {
+        video_buffer.pxls = video_buffer.frnt_buffer;
+    }
+    blit_to_texture(tex, video_buffer.pxls, w, h);
 }
 
 void parse_video_chunk(FILE* fileptr, chunkinfo info)
@@ -191,8 +196,7 @@ void parse_video_chunk(FILE* fileptr, chunkinfo info)
     printf("chunk -- size: %d type: %d\n", info.size, info.type);
 
     int offset = 0;
-    while (offset < info.size)
-    {
+    while (offset < info.size) {
         opcodeinfo op;
         memcpy(&op, &chunk[offset], sizeof(op));
         printf("op -- len: %d, type: %04x, ver: %d\n", op.size, op.type, op.version);
@@ -212,7 +216,7 @@ void parse_decoding_map(uint8_t* buffer, int size)
     memcpy(video_buffer.map_stream, buffer, size);
 }
 
-int cornerCopy_0x02(uint8_t* data_stream, video*video, uint8_t* dst_buff, bool blit)
+int cornerCopy_0x02(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* dst_buff, bool blit)
 {
     uint8_t buffer[64*3];
     int buffer_pitch = 8*3;
@@ -229,6 +233,7 @@ int cornerCopy_0x02(uint8_t* data_stream, video*video, uint8_t* dst_buff, bool b
         .h = 8
     };
 
+    // offset from current position
     if (B < 56) {
         src_rect.x = 8+(B%7);
         src_rect.y =    B/7;
@@ -237,7 +242,13 @@ int cornerCopy_0x02(uint8_t* data_stream, video*video, uint8_t* dst_buff, bool b
         src_rect.y =   8 + ((B-56) /29);
     }
 
-    BlitSurface(video_buffer.video_buffer, src_rect, buffer, buff_rect, video_buffer.pitch, buffer_pitch);
+    // offset from total
+    src_rect.x += x_offset;
+    src_rect.y += y_offset;
+
+    //TODO: which frame is "current" and which is "new"?
+    //copy from "new" frame?
+    BlitSurface(video_buffer.pxls, src_rect, buffer, buff_rect, video_buffer.pitch, buffer_pitch);
 
     if (blit) {
         BlitSurface(buffer, buff_rect, dst_buff, buff_rect, buffer_pitch, video_buffer.pitch);
@@ -246,7 +257,7 @@ int cornerCopy_0x02(uint8_t* data_stream, video*video, uint8_t* dst_buff, bool b
     return 1;
 }
 
-int cornerCopy_0x03(uint8_t* data_stream, uint8_t* dst_buff, bool blit)
+int cornerCopy_0x03(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* dst_buff, bool blit)
 {
     uint8_t buffer[64*3];
     int buff_pitch = 8*3;
@@ -263,6 +274,7 @@ int cornerCopy_0x03(uint8_t* data_stream, uint8_t* dst_buff, bool blit)
         .h = 8
     };
 
+    // offset from current position
     if (B < 56) {
         src_rect.x = -(8+(B%7));
         src_rect.y = -   (B/7);
@@ -270,8 +282,13 @@ int cornerCopy_0x03(uint8_t* data_stream, uint8_t* dst_buff, bool blit)
         src_rect.x = -(-14 + ((B-56) %29));
         src_rect.y = -(  8 + ((B-56) /29));
     }
+    // offset from total
+    src_rect.x += x_offset;
+    src_rect.y += y_offset;
 
-    BlitSurface(video_buffer.video_buffer, src_rect, buffer, buff_rect, video_buffer.pitch, buff_pitch);
+    //TODO: which frame is "current" and which is "new"?
+    //copy from "new" frame?
+    BlitSurface(video_buffer.pxls, src_rect, buffer, buff_rect, video_buffer.pitch, buff_pitch);
 
     if (blit) {
         BlitSurface(buffer, buff_rect, dst_buff, buff_rect, buff_pitch, video_buffer.pitch);
@@ -280,7 +297,7 @@ int cornerCopy_0x03(uint8_t* data_stream, uint8_t* dst_buff, bool blit)
     return 1;
 }
 
-int symmetricCopy_0x04(uint8_t* data_stream, uint8_t* dst_buff, bool blit)
+int symmetricCopy_0x04(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* dst_buff, bool blit)
 {
     uint8_t buffer[64*3];
     int buff_pitch = 8*3;
@@ -298,15 +315,26 @@ int symmetricCopy_0x04(uint8_t* data_stream, uint8_t* dst_buff, bool blit)
         .w = 8,
         .h = 8,
     };
+    // offset from current position
     Rect src_rect = {
         .x = -8 + B.BL,
         .y = -8 + B.BH,
         .w = 8,
         .h = 8
     };
+    // offset from total
+    src_rect.x += x_offset;
+    src_rect.y += y_offset;
 
+    uint8_t* current = NULL;
+    if (video_buffer.pxls == video_buffer.frnt_buffer) {
+        current = video_buffer.back_buffer;
+    } else {
+        current = video_buffer.frnt_buffer;
+    }
+    //TODO: which frame is "current" and which is "new"?
     //copy from "current" frame?
-    BlitSurface(video_buffer.video_buffer, src_rect, buffer, buff_rect, video_buffer.pitch, buff_pitch);
+    BlitSurface(current, src_rect, buffer, buff_rect, video_buffer.pitch, buff_pitch);
 
     if (blit) {
         BlitSurface(buffer, buff_rect, dst_buff, buff_rect, buff_pitch, video_buffer.pitch);
@@ -315,14 +343,14 @@ int symmetricCopy_0x04(uint8_t* data_stream, uint8_t* dst_buff, bool blit)
     return 1;
 }
 
-int symmetricCopy_0x05(uint8_t* data_stream, uint8_t* dst_buff, bool blit)
+int symmetricCopy_0x05(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* dst_buff, bool blit)
 {
     uint8_t buffer[64*3];
     int buff_pitch = 8*3;
 
     int8_t B[2] = {
-        data_stream[0],
-        data_stream[1]
+        (int8_t)data_stream[0],
+        (int8_t)data_stream[1]
     };
 
     Rect buff_rect = {
@@ -331,16 +359,26 @@ int symmetricCopy_0x05(uint8_t* data_stream, uint8_t* dst_buff, bool blit)
         .w = 8,
         .h = 8,
     };
+    // offset from current position
     Rect src_rect = {
         .x = B[0],
         .y = B[1],
         .w = 8,
         .h = 8
     };
+    // offset from total
+    src_rect.x += x_offset;
+    src_rect.y += y_offset;
 
+    uint8_t* current = NULL;
+    if (video_buffer.pxls == video_buffer.frnt_buffer) {
+        current = video_buffer.back_buffer;
+    } else {
+        current = video_buffer.frnt_buffer;
+    }
+    //TODO: which frame is "current" and which is "new"?
     //copy from "current" frame?
-    BlitSurface(video_buffer.video_buffer, src_rect, buffer, buff_rect, video_buffer.pitch, buff_pitch);
-
+    BlitSurface(current, src_rect, buffer, buff_rect, video_buffer.pitch, buff_pitch);
     if (blit) {
         BlitSurface(buffer, buff_rect, dst_buff, buff_rect, buff_pitch, video_buffer.pitch);
     }
@@ -1298,16 +1336,11 @@ int dithered_0x0F(uint8_t* data_stream, video*video_buffer, uint8_t* dst_buff, b
     return 2;
 }
 
-int parse_video_encode(uint8_t* data_stream, uint8_t* video, uint8_t op)
+int parse_video_encode(uint8_t op, uint8_t* data_stream, uint8_t* frame_buffer, int x_offset, int y_offset)
 {
     video_buffer.encode_type[op]++;
 
     bool* allow_blit = video_buffer.allow_blit;
-
-    // if (op != 0x07 && op != 0x08 && op != 0x0E) {
-    //     printf("non-op op: %0x\n", op);
-    // }
-
 
     int offset = 0;
     switch (op)
@@ -1319,46 +1352,68 @@ int parse_video_encode(uint8_t* data_stream, uint8_t* video, uint8_t op)
         offset = 0;
         break;
     case 0x02:
-        offset = cornerCopy_0x02(data_stream, &video_buffer, video, allow_blit[op]);
+        offset = cornerCopy_0x02(data_stream, x_offset, y_offset, frame_buffer, allow_blit[op]);
+        //offset = 1;
         break;
     case 0x03:
-        offset = cornerCopy_0x03(data_stream, video, allow_blit[op]);
+        offset = cornerCopy_0x03(data_stream,x_offset, y_offset, frame_buffer, allow_blit[op]);
+        //offset = 1;
         break;
     case 0x04:
-        offset = symmetricCopy_0x04(data_stream, video, allow_blit[op]);
+        offset = symmetricCopy_0x04(data_stream,x_offset, y_offset, frame_buffer, allow_blit[op]);
+        //offset = 1;
         break;
     case 0x05:
-        offset = symmetricCopy_0x05(data_stream, video, allow_blit[op]);
+        offset = symmetricCopy_0x05(data_stream,x_offset, y_offset, frame_buffer, allow_blit[op]);
+        //offset = 2;
         break;
     case 0x06:
         offset = 0;
+        //no opcode 0x06 found so far
         break;
     case 0x07:
-        offset = pattern_0x07(data_stream, &video_buffer, video, allow_blit[op]);
+        offset = pattern_0x07(data_stream, &video_buffer, frame_buffer, allow_blit[op]);
+        //offset = 10;
+        //  or
+        //offset = 4;
         break;
     case 0x08:
-        offset = pattern_0x08(data_stream, &video_buffer, video, allow_blit[op]);
+        offset = pattern_0x08(data_stream, &video_buffer, frame_buffer, allow_blit[op]);
+        //offset = 16;
+        //  or
+        //offset = 12;
         break;
     case 0x09:
-        offset = pattern_0x09(data_stream, &video_buffer, video, allow_blit[op]);
+        offset = pattern_0x09(data_stream, &video_buffer, frame_buffer, allow_blit[op]);
+        //offset = 20;
+        //offset = 8;
+        //offset = 12;
+        //offset = 12;
         break;
     case 0x0A:
-        offset = pattern_0x0A(data_stream, &video_buffer, video, allow_blit[op]);
+        offset = pattern_0x0A(data_stream, &video_buffer, frame_buffer, allow_blit[op]);
+        //offset = 32;
+        //offset = 24;
         break;
     case 0x0B:
-        offset = raw_pixels_0x0B(data_stream, &video_buffer, video, allow_blit[op]);
+        offset = raw_pixels_0x0B(data_stream, &video_buffer, frame_buffer, allow_blit[op]);
+        //offset = 64;
         break;
     case 0x0C:
-        offset = raw_pixels_0x0C(data_stream, &video_buffer, video, allow_blit[op]);
+        offset = raw_pixels_0x0C(data_stream, &video_buffer, frame_buffer, allow_blit[op]);
+        //offset = 16;
         break;
     case 0x0D:
-        offset = raw_pixels_0x0D(data_stream, &video_buffer, video, allow_blit[op]);
+        offset = raw_pixels_0x0D(data_stream, &video_buffer, frame_buffer, allow_blit[op]);
+        //offset = 4;
         break;
     case 0x0E:
-        offset = solid_frame_0x0E(data_stream, &video_buffer, video, allow_blit[op]);
+        offset = solid_frame_0x0E(data_stream, &video_buffer, frame_buffer, allow_blit[op]);
+        //offset = 1;
         break;
     case 0x0F:
-        offset = dithered_0x0F(data_stream, &video_buffer, video, allow_blit[op]);
+        offset = dithered_0x0F(data_stream, &video_buffer, frame_buffer, allow_blit[op]);
+        //offset = 2;
         break;
 
     default:
@@ -1373,33 +1428,40 @@ void parse_video_data(uint8_t* buffer)
     uint8_t* map_stream = video_buffer.map_stream;
     uint8_t* data_stream = buffer;
 
-    uint8_t* video = video_buffer.video_buffer;
+    uint8_t* curr_frame = video_buffer.pxls;
 
     uint8_t mask    = 0x0F;
-    int buff_offset = 0;
     int data_offset = 0;
     int pitch       = video_buffer.pitch;
-    int y           = 0;
+    int x_offset    = 0;
+    int y_offset    = 0;
 
     for (int i = 0; i < video_buffer.map_size*2; i++)
     {
-    // for (int y = 0; y < video_buffer.block_h; y++) {
-    //     for (int x = 0; x < video_buffer.block_w; x++) {
-            mask = ~mask;
-            uint8_t enc = map_stream[i/2] & mask;
-            // uint8_t enc = map_stream[y*video_buffer.block_w + x] & mask;
-            if (mask == 0xF0) {
-                enc >>= 4;
-            }
+        if (i/2 > video_buffer.map_size) {
+            printf("overflowing map\n");
+            return;
+        } //TODO: delete this debug printf
+        mask = ~mask;
+        uint8_t enc = map_stream[i/2] & mask;
+        // uint8_t enc = map_stream[y*video_buffer.block_w + x] & mask;
+        if (mask == 0xF0) {
+            enc >>= 4;
+        }
 
-            // printf("enc: %0x  data_offset: %d\n", enc, data_offset);
-            data_offset += parse_video_encode(&data_stream[data_offset], &video[y*pitch + buff_offset], enc);
+        // printf("enc: %0x  data_offset: %d\n", enc, data_offset);
+        data_offset += parse_video_encode(
+            enc,
+            &data_stream[data_offset],
+            &curr_frame[y_offset*pitch + x_offset],
+            x_offset,
+            y_offset
+        );
 
-            buff_offset += 8*3;
-            if (buff_offset >= video_buffer.pitch) {
-                buff_offset = 0;
-                y += 8;
-            }
-        // }
+        x_offset += 8*3;
+        if (x_offset >= video_buffer.pitch) {
+            x_offset  = 0;
+            y_offset += 8;
+        }
     }
 }
