@@ -53,6 +53,7 @@ struct video {
 
     int encode_type[0xf];
     int frame_count = 0;
+    bool blit_marker[16];
     bool allow_blit[16] = {
         true,       // 0 // blockCopy_0x00
         true,       // 1 // 

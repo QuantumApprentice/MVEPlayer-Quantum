@@ -232,8 +232,10 @@ void filter_buttons(ImVec2 pos)
 {
     int spacing = ImGui::GetTextLineHeightWithSpacing();
     bool* allow_blit = video_buffer.allow_blit;
-    for (int i = 0; i < 0xF; i++)
+    bool* blit_marker = video_buffer.blit_marker;
+    for (int i = 0; i < 0xF+1; i++)
     {
+        ImGui::PushID(i);
         ImGui::SetCursorPos(ImVec2(pos.x, pos.y + (i+1)*spacing));
         char button[10];
         snprintf(button, 10, "0x%0x", i);
@@ -244,15 +246,19 @@ void filter_buttons(ImVec2 pos)
         ImGui::Text(allow_blit[i] ? "On" : "Off");
         ImGui::SameLine();
         ImGui::Text("%d", video_buffer.encode_type[i]);
+        ImGui::SameLine();
+        if (ImGui::Button(blit_marker[i] ? "Unmark" : "Mark")) {
+            blit_marker[i] = !blit_marker[i];
+        }
+        ImGui::PopID();
     }
 
-    ImGui::SetCursorPos(ImVec2(pos.x, pos.y + spacing*(0xf+1)));
+    ImGui::SetCursorPos(ImVec2(pos.x, pos.y + spacing*(0xf+2)));
     if (ImGui::Button("All Off")) {
-        for (int i = 0; i < 0xF; i++)
+        for (int i = 0; i < 0xF+1; i++)
         {
             allow_blit[i] = false;
         }
-        
     }
 }
 

@@ -217,7 +217,7 @@ void parse_decoding_map(uint8_t* buffer, int size)
     memcpy(video_buffer.map_stream, buffer, size);
 }
 
-int blockCopy_0x00(uint8_t* data_stream, uint8_t* dst_buff, int offset_x, int offset_y, bool blit)
+int blockCopy_0x00(uint8_t* data_stream, uint8_t* dst_buff, int offset_x, int offset_y, bool blit, bool mark)
 {
     uint8_t* block_buff = video_buffer.block_buffer;
     int buff_pitch      = video_buffer.block_pitch;
@@ -234,7 +234,7 @@ int blockCopy_0x00(uint8_t* data_stream, uint8_t* dst_buff, int offset_x, int of
     }
 
     Rect src_rect = {
-        .x = offset_x,
+        .x = offset_x/3,
         .y = offset_y,
         .w = 8,
         .h = 8,
@@ -247,7 +247,9 @@ int blockCopy_0x00(uint8_t* data_stream, uint8_t* dst_buff, int offset_x, int of
     };
 
     BlitSurface(current, src_rect, frame_pitch, block_buff, buff_rect, buff_pitch);
-
+    if (mark) {
+        PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
+    }
     if (blit) {
         BlitSurface(block_buff, buff_rect, buff_pitch, dst_buff, buff_rect, frame_pitch);
     }
@@ -255,7 +257,7 @@ int blockCopy_0x00(uint8_t* data_stream, uint8_t* dst_buff, int offset_x, int of
     return 0;
 }
 
-int cornerCopy_0x02(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* dst_buff, bool blit)
+int cornerCopy_0x02(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* dst_buff, bool blit, bool mark)
 {
     uint8_t* block_buff = video_buffer.block_buffer;
     int buff_pitch      = video_buffer.block_pitch;
@@ -292,14 +294,17 @@ int cornerCopy_0x02(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* d
     //TODO: copy from "new" frame?
     // BlitSurface(video_buffer.pxls, src_rect, block_buff, buff_rect, frame_pitch, buff_pitch);
     BlitSurface(dst_buff, src_rect, frame_pitch, block_buff, buff_rect, buff_pitch);
+    if (mark) {
+        PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
+    }
     if (blit) {
-        BlitSurface(block_buff, buff_rect,buff_pitch, dst_buff, buff_rect, frame_pitch);
+        BlitSurface(block_buff, buff_rect, buff_pitch, dst_buff, buff_rect, frame_pitch);
     }
 
     return 1;
 }
 
-int cornerCopy_0x03(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* dst_buff, bool blit)
+int cornerCopy_0x03(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* dst_buff, bool blit, bool mark)
 {
     uint8_t* block_buff = video_buffer.block_buffer;
     int buff_pitch      = video_buffer.block_pitch;
@@ -335,7 +340,9 @@ int cornerCopy_0x03(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* d
     //copy from "new" frame?
     // BlitSurface(video_buffer.pxls, src_rect, block_buff, buff_rect, frame_pitch, buff_pitch);
     BlitSurface(dst_buff, src_rect, frame_pitch, block_buff, buff_rect, buff_pitch);
-
+    if (mark) {
+        PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
+    }
     if (blit) {
         BlitSurface(block_buff, buff_rect, buff_pitch, dst_buff, buff_rect, frame_pitch);
     }
@@ -343,7 +350,7 @@ int cornerCopy_0x03(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* d
     return 1;
 }
 
-int symmetricCopy_0x04(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* dst_buff, bool blit)
+int symmetricCopy_0x04(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* dst_buff, bool blit, bool mark)
 {
     uint8_t* block_buff = video_buffer.block_buffer;
     int buff_pitch      = video_buffer.block_pitch;
@@ -384,7 +391,9 @@ int symmetricCopy_0x04(uint8_t* data_stream, int x_offset, int y_offset, uint8_t
         .h = 8,
     };
     BlitSurface(current, src_rect, frame_pitch, block_buff, buff_rect, buff_pitch);
-
+    if (mark) {
+        PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
+    }
     if (blit) {
         BlitSurface(block_buff, buff_rect, buff_pitch, dst_buff, buff_rect, frame_pitch);
     }
@@ -392,7 +401,7 @@ int symmetricCopy_0x04(uint8_t* data_stream, int x_offset, int y_offset, uint8_t
     return 1;
 }
 
-int symmetricCopy_0x05(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* dst_buff, bool blit)
+int symmetricCopy_0x05(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* dst_buff, bool blit, bool mark)
 {
     uint8_t* block_buff = video_buffer.block_buffer;
     int buff_pitch      = video_buffer.block_pitch;
@@ -430,6 +439,9 @@ int symmetricCopy_0x05(uint8_t* data_stream, int x_offset, int y_offset, uint8_t
         .h = 8,
     };
     BlitSurface(current, src_rect, frame_pitch, block_buff, buff_rect, buff_pitch);
+    if (mark) {
+        PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
+    }
     if (blit) {
         BlitSurface(block_buff, buff_rect, buff_pitch, dst_buff, buff_rect, frame_pitch);
     }
@@ -437,7 +449,7 @@ int symmetricCopy_0x05(uint8_t* data_stream, int x_offset, int y_offset, uint8_t
     return 2;
 }
 
-int pattern_0x07(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool blit)
+int pattern_0x07(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool blit, bool mark)
 {
     int offset = 0;
 
@@ -534,7 +546,9 @@ int pattern_0x07(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
         .w = 8,
         .h = 8,
     };
-
+    if (mark) {
+        PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
+    }
     if (blit) {
         BlitSurface(block_buff, buff_rect, buff_pitch, dst_buff, buff_rect, frame_pitch);
     }
@@ -542,7 +556,7 @@ int pattern_0x07(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
     return offset;
 }
 
-int pattern_0x08(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool blit)
+int pattern_0x08(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool blit, bool mark)
 {
     int offset = 0;
 
@@ -827,11 +841,14 @@ int pattern_0x08(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
             }
         }
     }
+    // if (mark) {
+    //     PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
+    // }
 
     return offset;
 }
 
-int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool blit)
+int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool blit, bool mark)
 {
     int offset = 0;
 
@@ -1025,13 +1042,16 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
         .w = 8,
         .h = 8,
     };
+    if (mark) {
+        PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
+    }
     if (blit) {
         BlitSurface(block_buff, buff_rect, buff_pitch, dst_buff, buff_rect, frame_pitch);
     }
     return offset;
 }
 
-int pattern_0x0A(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool blit)
+int pattern_0x0A(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool blit, bool mark)
 {
     int offset = 0;
 
@@ -1193,6 +1213,9 @@ int pattern_0x0A(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
         .w = 8,
         .h = 8,
     };
+    if (mark) {
+        PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
+    }
     if (blit) {
         BlitSurface(block_buff, buff_rect, buff_pitch, dst_buff, buff_rect, frame_pitch);
     }
@@ -1200,7 +1223,7 @@ int pattern_0x0A(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
     return offset;
 }
 
-int raw_pixels_0x0B(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff, bool blit)
+int raw_pixels_0x0B(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff, bool blit, bool mark)
 {
     uint8_t* block_buff = video_buffer->block_buffer;
     int buff_pitch      = video_buffer->block_pitch;
@@ -1226,7 +1249,9 @@ int raw_pixels_0x0B(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff
         .w = 8,
         .h = 8,
     };
-
+    if (mark) {
+        PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
+    }
     if (blit) {
         BlitSurface(block_buff, buff_rect, buff_pitch, dst_buff, buff_rect, frame_pitch);
     }
@@ -1234,7 +1259,7 @@ int raw_pixels_0x0B(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff
     return 64;
 }
 
-int raw_pixels_0x0C(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff, bool blit)
+int raw_pixels_0x0C(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff, bool blit, bool mark)
 {
     uint8_t* block_buff = video_buffer->block_buffer;
     int buff_pitch      = video_buffer->block_pitch;
@@ -1264,6 +1289,9 @@ int raw_pixels_0x0C(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff
         .w = 8,
         .h = 8,
     };
+    if (mark) {
+        PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
+    }
     if (blit) {
         BlitSurface(block_buff, buff_rect, buff_pitch, dst_buff, buff_rect, frame_pitch);
     }
@@ -1271,7 +1299,7 @@ int raw_pixels_0x0C(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff
     return 16;
 }
 
-int raw_pixels_0x0D(uint8_t* data_stream, video*video_buffer, uint8_t* dst_buff, bool blit)
+int raw_pixels_0x0D(uint8_t* data_stream, video*video_buffer, uint8_t* dst_buff, bool blit, bool mark)
 {
     uint8_t* block_buff = video_buffer->block_buffer;
     int buff_pitch      = video_buffer->block_pitch;
@@ -1302,6 +1330,9 @@ int raw_pixels_0x0D(uint8_t* data_stream, video*video_buffer, uint8_t* dst_buff,
         .w = 8,
         .h = 8,
     };
+    if (mark) {
+        PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
+    }
     if (blit) {
         BlitSurface(block_buff, buff_rect, buff_pitch, dst_buff, buff_rect, frame_pitch);
     }
@@ -1310,7 +1341,7 @@ int raw_pixels_0x0D(uint8_t* data_stream, video*video_buffer, uint8_t* dst_buff,
 }
 
 //set the whole 8x8 pixels a solid color
-int solid_frame_0x0E(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff, bool paint)
+int solid_frame_0x0E(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff, bool paint, bool mark)
 {
     uint8_t pal_index = data_stream[0];
     Rect dst_rect = {
@@ -1328,11 +1359,14 @@ int solid_frame_0x0E(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buf
     if (paint) {
         PaintSurface(dst_buff, pitch, dst_rect, color);
     }
+    // if (mark) {
+    //     PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
+    // }
 
     return 1;
 }
 
-int dithered_0x0F(uint8_t* data_stream, video*video_buffer, uint8_t* dst_buff, bool blit)
+int dithered_0x0F(uint8_t* data_stream, video*video_buffer, uint8_t* dst_buff, bool blit, bool mark)
 {
     uint8_t* block_buff = video_buffer->block_buffer;
     int buff_pitch      = video_buffer->block_pitch;
@@ -1347,27 +1381,32 @@ int dithered_0x0F(uint8_t* data_stream, video*video_buffer, uint8_t* dst_buff, b
     palette color1 = pal[P[0]];
     palette color2 = pal[P[1]];
 
-    for (int i = 0; i < 64; i+=2)
+
+
+    for (int i = 0; i < 64; i+=6)
     {
         // buffer[i*3] = color1.color;
-        block_buff[i*3 +0] = color1.r;
-        block_buff[i*3 +1] = color1.g;
-        block_buff[i*3 +2] = color1.b;
+        block_buff[i +0] = color1.r;
+        block_buff[i +1] = color1.g;
+        block_buff[i +2] = color1.b;
     }
-    for (int i = 1; i < 64; i+=2)
+    for (int i = 3; i < 64; i+=6)
     {
         // buffer[i*3] = color2.color;
-        block_buff[i*3 +0] = color2.r;
-        block_buff[i*3 +1] = color2.g;
-        block_buff[i*3 +2] = color2.b;
+        block_buff[i +0] = color2.r;
+        block_buff[i +1] = color2.g;
+        block_buff[i +2] = color2.b;
     }
 
     Rect buff_rect = {
         .x = 0,
         .y = 0,
         .w = 8,
-        .h = 8
+        .h = 8,
     };
+    if (mark) {
+        PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
+    }
     if (blit) {
         BlitSurface(block_buff, buff_rect, buff_pitch, dst_buff, buff_rect, frame_pitch);
     }
@@ -1380,31 +1419,32 @@ int parse_video_encode(uint8_t op, uint8_t* data_stream, uint8_t* frame_buffer, 
     video_buffer.encode_type[op]++;
 
     bool* allow_blit = video_buffer.allow_blit;
+    bool* blit_mark  = video_buffer.blit_marker;
 
     int offset = 0;
     switch (op)
     {
     case 0x00:
-        offset = blockCopy_0x00(data_stream, frame_buffer, x_offset, y_offset, allow_blit[op]);
+        offset = blockCopy_0x00(data_stream, frame_buffer, x_offset, y_offset, allow_blit[op], blit_mark[op]);
         //offset = 0;
         break;
     case 0x01:
         offset = 0;
         break;
     case 0x02:
-        offset = cornerCopy_0x02(data_stream, x_offset, y_offset, frame_buffer, allow_blit[op]);
+        offset = cornerCopy_0x02(data_stream, x_offset, y_offset, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 1;
         break;
     case 0x03:
-        offset = cornerCopy_0x03(data_stream,x_offset, y_offset, frame_buffer, allow_blit[op]);
+        offset = cornerCopy_0x03(data_stream,x_offset, y_offset, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 1;
         break;
     case 0x04:
-        offset = symmetricCopy_0x04(data_stream,x_offset, y_offset, frame_buffer, allow_blit[op]);
+        offset = symmetricCopy_0x04(data_stream,x_offset, y_offset, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 1;
         break;
     case 0x05:
-        offset = symmetricCopy_0x05(data_stream,x_offset, y_offset, frame_buffer, allow_blit[op]);
+        offset = symmetricCopy_0x05(data_stream,x_offset, y_offset, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 2;
         break;
     case 0x06:
@@ -1412,47 +1452,47 @@ int parse_video_encode(uint8_t op, uint8_t* data_stream, uint8_t* frame_buffer, 
         //no opcode 0x06 found so far
         break;
     case 0x07:
-        offset = pattern_0x07(data_stream, &video_buffer, frame_buffer, allow_blit[op]);
+        offset = pattern_0x07(data_stream, &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 10;
         //  or
         //offset = 4;
         break;
     case 0x08:
-        offset = pattern_0x08(data_stream, &video_buffer, frame_buffer, allow_blit[op]);
+        offset = pattern_0x08(data_stream, &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 16;
         //  or
         //offset = 12;
         break;
     case 0x09:
-        offset = pattern_0x09(data_stream, &video_buffer, frame_buffer, allow_blit[op]);
+        offset = pattern_0x09(data_stream, &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 20;
         //offset = 8;
         //offset = 12;
         //offset = 12;
         break;
     case 0x0A:
-        offset = pattern_0x0A(data_stream, &video_buffer, frame_buffer, allow_blit[op]);
+        offset = pattern_0x0A(data_stream, &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 32;
         //offset = 24;
         break;
     case 0x0B:
-        offset = raw_pixels_0x0B(data_stream, &video_buffer, frame_buffer, allow_blit[op]);
+        offset = raw_pixels_0x0B(data_stream, &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 64;
         break;
     case 0x0C:
-        offset = raw_pixels_0x0C(data_stream, &video_buffer, frame_buffer, allow_blit[op]);
+        offset = raw_pixels_0x0C(data_stream, &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 16;
         break;
     case 0x0D:
-        offset = raw_pixels_0x0D(data_stream, &video_buffer, frame_buffer, allow_blit[op]);
+        offset = raw_pixels_0x0D(data_stream, &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 4;
         break;
     case 0x0E:
-        offset = solid_frame_0x0E(data_stream, &video_buffer, frame_buffer, allow_blit[op]);
+        offset = solid_frame_0x0E(data_stream, &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 1;
         break;
     case 0x0F:
-        offset = dithered_0x0F(data_stream, &video_buffer, frame_buffer, allow_blit[op]);
+        offset = dithered_0x0F(data_stream, &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 2;
         break;
 
