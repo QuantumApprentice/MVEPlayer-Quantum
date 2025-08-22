@@ -235,7 +235,7 @@ int blockCopy_0x00(uint8_t* data_stream, uint8_t* dst_buff, int offset_x, int of
     }
 
     Rect src_rect = {
-        .x = offset_x/3,
+        .x = offset_x,
         .y = offset_y,
         .w = 8,
         .h = 8,
@@ -1514,8 +1514,19 @@ void parse_video_data(uint8_t* buffer)
     uint8_t* next_frame = video_buffer.pxls;
 
     uint8_t mask    = 0x0F;
-    int data_offset = 0;
+
+
+
+
+    //TODO: clean up testing function call
+    // int data_offset = 0;
+    int data_offset = video_buffer.data_offset_init;
+
+
+
+
     int frame_pitch = video_buffer.pitch;
+    // x_offset & y_offset == offset into the framebuffer in pixels
     int x_offset    = 0;
     int y_offset    = 0;
 
@@ -1531,13 +1542,13 @@ void parse_video_data(uint8_t* buffer)
         data_offset += parse_video_encode(
             enc,
             &data_stream[data_offset],
-            &next_frame[y_offset*frame_pitch + x_offset],
+            &next_frame[y_offset*frame_pitch + x_offset*3],
             x_offset,
             y_offset
         );
 
-        x_offset += 8*3;
-        if (x_offset >= video_buffer.pitch) {
+        x_offset += 8;
+        if (x_offset*3 >= frame_pitch) {
             x_offset  = 0;
             y_offset += 8;
         }

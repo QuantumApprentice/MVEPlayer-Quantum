@@ -73,6 +73,7 @@ struct video {
         true        // F // dithered_0x0F
     };
 
+    int data_offset_init = 0;
 };
 extern video video_buffer;
 

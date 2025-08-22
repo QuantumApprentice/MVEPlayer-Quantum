@@ -146,7 +146,7 @@ int main(int, char**)
             ImGui::ShowDemoWindow(&show_demo_window);
 
 
-
+#pragma region player_buttons
         ImGui::Begin("MVE Player!");
         video_player();
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
@@ -259,6 +259,10 @@ void filter_buttons(ImVec2 pos)
             allow_blit[i] = false;
         }
     }
+
+    //TODO: testing purposes
+    ImGui::NewLine();
+    ImGui::SliderInt("data_offset", &video_buffer.data_offset_init, -8, 8, NULL);
 }
 
 void video_player()
