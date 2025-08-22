@@ -217,6 +217,7 @@ void parse_decoding_map(uint8_t* buffer, int size)
     memcpy(video_buffer.map_stream, buffer, size);
 }
 
+//TODO: delete data_stream (not used)
 int blockCopy_0x00(uint8_t* data_stream, uint8_t* dst_buff, int offset_x, int offset_y, bool blit, bool mark)
 {
     uint8_t* block_buff = video_buffer.block_buffer;
@@ -1090,17 +1091,17 @@ int pattern_0x0A(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
             {
                 for (int x = 0; x < 4; x++)
                 {
-                    uint8_t pal_index = B[byte_index] & mask >> mask_offset;
+                    uint8_t P_index = B[byte_index] & mask >> mask_offset;
                     switch (mask_offset)
                     {
                     case 0:
-                        pal_index >>= 6;
+                        P_index >>= 6;
                         break;
                     case 2:
-                        pal_index >>= 4;
+                        P_index >>= 4;
                         break;
                     case 4:
-                        pal_index >>= 2;
+                        P_index >>= 2;
                         break;
                     case 6:
                         byte_index++;
@@ -1108,7 +1109,7 @@ int pattern_0x0A(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
                             byte_index = 0;
                         }
                     }
-                    palette color = pal[P[pal_index]];
+                    palette color = pal[P[P_index]];
 
                     int quad_offsety = 0;
                     int quad_offsetx = 0;
@@ -1163,17 +1164,17 @@ int pattern_0x0A(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
             {
                 for (int x = 0; x < w; x++)
                 {
-                    uint8_t pal_index = B[byte_index] & mask >> mask_offset;
+                    uint8_t P_index = B[byte_index] & (mask >> mask_offset);
                     switch (mask_offset)
                     {
                     case 0:
-                        pal_index >>= 6;
+                        P_index >>= 6;
                         break;
                     case 2:
-                        pal_index >>= 4;
+                        P_index >>= 4;
                         break;
                     case 4:
-                        pal_index >>= 2;
+                        P_index >>= 2;
                         break;
                     case 6:
                         byte_index++;
@@ -1181,7 +1182,7 @@ int pattern_0x0A(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
                             byte_index = 0;
                         }
                     }
-                    palette color = pal[P[pal_index]];
+                    palette color = pal[P[P_index]];
 
                     int half_offsety = 0;
                     int half_offsetx = 0;
@@ -1341,10 +1342,14 @@ int raw_pixels_0x0D(uint8_t* data_stream, video*video_buffer, uint8_t* dst_buff,
 }
 
 //set the whole 8x8 pixels a solid color
-int solid_frame_0x0E(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff, bool paint, bool mark)
+int solid_frame_0x0E(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff, bool blit, bool mark)
 {
+    uint8_t* block_buff = video_buffer->block_buffer;
+    int buff_pitch      = video_buffer->block_pitch;
+    int frame_pitch     = video_buffer->pitch;
+
     uint8_t pal_index = data_stream[0];
-    Rect dst_rect = {
+    Rect buff_rect = {
         .x = 0,
         .y = 0,
         .w = 8,
@@ -1352,16 +1357,16 @@ int solid_frame_0x0E(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buf
     };
 
     palette color = video_buffer->pal[pal_index];
-    int pitch = video_buffer->pitch;
-    printf("pal_index: %d  RGB %d%d%d\n", pal_index, color.r, color.g, color.b);
+    // printf("pal_index: %d  RGB %d%d%d\n", pal_index, color.r, color.g, color.b);
 
     //TODO: paint a buffer first, then blit
-    if (paint) {
-        PaintSurface(dst_buff, pitch, dst_rect, color);
+    PaintSurface(block_buff, buff_pitch, buff_rect, color);
+    if (mark) {
+        PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
     }
-    // if (mark) {
-    //     PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
-    // }
+    if (blit) {
+        BlitSurface(block_buff, buff_rect, buff_pitch, dst_buff, buff_rect, frame_pitch);
+    }
 
     return 1;
 }
@@ -1380,8 +1385,6 @@ int dithered_0x0F(uint8_t* data_stream, video*video_buffer, uint8_t* dst_buff, b
     palette* pal = video_buffer->pal;
     palette color1 = pal[P[0]];
     palette color2 = pal[P[1]];
-
-
 
     for (int i = 0; i < 64; i+=6)
     {

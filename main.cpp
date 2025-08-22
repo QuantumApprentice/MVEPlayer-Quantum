@@ -189,7 +189,6 @@ FILE* open_file(char* filename)
 
 bool parse_header(FILE* fileptr)
 {
-
     uint8_t buffer[20];
     fread(buffer, 20, 1, fileptr);
 
@@ -233,7 +232,7 @@ void filter_buttons(ImVec2 pos)
     int spacing = ImGui::GetTextLineHeightWithSpacing();
     bool* allow_blit = video_buffer.allow_blit;
     bool* blit_marker = video_buffer.blit_marker;
-    for (int i = 0; i < 0xF+1; i++)
+    for (int i = 0; i <= 0xF; i++)
     {
         ImGui::PushID(i);
         ImGui::SetCursorPos(ImVec2(pos.x, pos.y + (i+1)*spacing));
@@ -255,7 +254,7 @@ void filter_buttons(ImVec2 pos)
 
     ImGui::SetCursorPos(ImVec2(pos.x, pos.y + spacing*(0xf+2)));
     if (ImGui::Button("All Off")) {
-        for (int i = 0; i < 0xF+1; i++)
+        for (int i = 0; i <= 0xF; i++)
         {
             allow_blit[i] = false;
         }
