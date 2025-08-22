@@ -1,7 +1,9 @@
-#include <stdio.h>
-#include "parse_opcodes.h"
+#include <memory.h>
+#include <stdlib.h>
 #include "parse_video.h"
-#include "parse_video.cpp"
+#include "parse_opcodes.h"
+
+video video_buffer;
 
 int main()
 {
