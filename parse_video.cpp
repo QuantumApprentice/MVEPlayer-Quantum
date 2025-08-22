@@ -1417,6 +1417,9 @@ int dithered_0x0F(uint8_t* data_stream, video*video_buffer, uint8_t* dst_buff, b
     return 2;
 }
 
+//frame_buffer points to the current pixel block passed in from parse_video_data()
+//data_stream  points to the current position for the pixel information
+//x_ & y_offset are the current offset into the frame_buffer (already applied to frame_buffer)
 int parse_video_encode(uint8_t op, uint8_t* data_stream, uint8_t* frame_buffer, int x_offset, int y_offset)
 {
     video_buffer.encode_type[op]++;

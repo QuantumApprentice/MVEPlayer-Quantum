@@ -259,6 +259,14 @@ void filter_buttons(ImVec2 pos)
             allow_blit[i] = false;
         }
     }
+    ImGui::SameLine();
+    if (ImGui::Button("All On")) {
+        for (int i = 0; i <= 0xF; i++)
+        {
+            allow_blit[i] = true;
+        }
+        
+    }
 
     //TODO: testing purposes
     ImGui::NewLine();
@@ -269,6 +277,7 @@ void video_player()
 {
     static bool success = false;
     char filename[] = "../../testing/IPLOGO.MVE";
+    // char filename[] = "IPLOGO.MVE";
     // char filename[] = "../../testing/final.mve";
     static ImVec2 pos;
 
