@@ -163,8 +163,8 @@ int main(int, char**)
 #endif
 
         ImGui::Begin("MVE Player!");
-        video_player();
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+        video_player();
         ImGui::End();
 
 
@@ -242,20 +242,35 @@ int get_filesize(FILE* fileptr)
     return file_len;
 }
 
-void filter_buttons(ImVec2 pos)
+bool filter_buttons()
 {
+    bool rerender[0xF+1] = {};
+    bool* allow_blit     = video_buffer.allow_blit;
+    bool* blit_marker    = video_buffer.blit_marker;
     int spacing = ImGui::GetTextLineHeightWithSpacing();
-    if (pos.x == 0) {
-        pos.x = 100;
+    ImGui::SameLine();
+    if (ImGui::Button("All Off")) {
+        for (int i = 0; i <= 0xF; i++) {
+            allow_blit[i] = false;
+        }
     }
+    ImGui::SameLine();
+    if (ImGui::Button("All On")) {
+        for (int i = 0; i <= 0xF; i++) {
+            allow_blit[i] = true;
+        }
+    }
+    ImGui::PushItemWidth(100);
+    ImGui::SliderInt("data_offset_init", &video_buffer.data_offset_init, -16, 16, NULL);
+    ImGui::PopItemWidth();
 
-    ImGui::SetCursorPos(ImVec2(pos.x, pos.y + spacing*(0xf+2)));
-    bool* allow_blit = video_buffer.allow_blit;
-    bool* blit_marker = video_buffer.blit_marker;
     for (int i = 0; i <= 0xF; i++)
     {
         ImGui::PushID(i);
-        ImGui::SetCursorPos(ImVec2(pos.x, pos.y + (i+1)*spacing));
+        ImGui::PushItemWidth(100);
+        rerender[i] = ImGui::SliderInt("offset", &video_buffer.data_offset[i], -16,16, NULL);
+        ImGui::PopItemWidth();
+        ImGui::SameLine();
         char button[10];
         snprintf(button, 10, "0x%0x", i);
         if (ImGui::Button(button)) {
@@ -269,31 +284,18 @@ void filter_buttons(ImVec2 pos)
         if (ImGui::Button(blit_marker[i] ? "Unmark" : "Mark")) {
             blit_marker[i] = !blit_marker[i];
         }
-        ImGui::SameLine();
-        ImGui::PushItemWidth(100);
-        ImGui::SliderInt("offset", &video_buffer.data_offset[i], -16,16, NULL);
-        ImGui::PopItemWidth();
+
         ImGui::PopID();
     }
 
-    ImGui::SetCursorPos(ImVec2(pos.x, pos.y + spacing*(0xf+2)));
-    if (ImGui::Button("All Off")) {
-        for (int i = 0; i <= 0xF; i++)
-        {
-            allow_blit[i] = false;
+    for (int i = 0; i <= 0xF; i++)
+    {
+        if (rerender[i]) {
+            return true;
         }
     }
-    ImGui::SameLine();
-    if (ImGui::Button("All On")) {
-        for (int i = 0; i <= 0xF; i++)
-        {
-            allow_blit[i] = true;
-        }
-    }
-
-    //TODO: testing purposes
-    ImGui::NewLine();
-    ImGui::SliderInt("data_offset", &video_buffer.data_offset_init, -8, 8, NULL);
+    
+    return false;
 }
 
 enum CHUNK {
@@ -314,39 +316,19 @@ void video_player()
     static ImVec2 pos;
     static Chunk chunk;
     static bool pause = false;
-
-    if (video_buffer.pxls) {
-        ImVec2 uv_min = {0, 0};
-        ImVec2 uv_max = {1.0, 1.0};
-        int width   = video_buffer.render_w;
-        int height  = video_buffer.render_h;
-        float scale = 1;                        //video_buffer.scale;
-        ImVec2 size = ImVec2((float)(width * scale), (float)(height * scale));
-        ImGui::Image(
-            video_buffer.video_texture,
-            size, uv_min, uv_max
-        );
-        ImGui::SameLine();
-        pos = ImGui::GetCursorPos();
-        // ImGuiWindow *window = ImGui::GetCurrentWindow();
-        //TODO: change top_corner() for img_pos passed in from outside
-        // window->DrawList->AddImage(
-        //     (ImTextureID)(uintptr_t)img_data->render_texture,
-        //     top_corner(img_data->offset), bottom_corner(size, top_corner(img_data->offset)),
-        //     uv_min, uv_max,
-        //     ImGui::GetColorU32(My_Variables->tint_col));
-    }
+    pos = ImGui::GetCursorPos();
 
     if (ImGui::Button("Play MVE")) {
         printf("Parsing IPLOGO.MVE\n");
 
         if (video_buffer.fileptr) {
             fclose(video_buffer.fileptr);
+            video_buffer.fileptr = NULL;
         }
         if (video_buffer.pxls) {
             free(video_buffer.frnt_buffer);
             free(video_buffer.back_buffer);
-            video_buffer.pxls = NULL;
+            video_buffer.pxls        = NULL;
             video_buffer.frnt_buffer = NULL;
             video_buffer.back_buffer = NULL;
         }
@@ -367,14 +349,38 @@ void video_player()
     if (ImGui::Button(pause ? "Play" : "Pause")) {
         pause = !pause;
     }
+    static float scale = 1;                        //video_buffer.scale;
+    ImGui::PushItemWidth(100);
+    ImGui::DragFloat("Zoom", &scale, .01, 0, 2.0);
     bool rerender = false;
     if (ImGui::Button("re-render frame")) {
         rerender = true;
     }
+    rerender = filter_buttons();
     if (rerender) {
         parse_chunk(chunk);
     }
-    filter_buttons(pos);
+
+    //image
+    if (video_buffer.pxls) {
+        ImGui::SetCursorPos(ImVec2(pos.x+400, pos.y));
+        ImVec2 uv_min = {0, 0};
+        ImVec2 uv_max = {1.0, 1.0};
+        int width   = video_buffer.render_w;
+        int height  = video_buffer.render_h;
+        ImVec2 size = ImVec2((float)(width * scale), (float)(height * scale));
+        ImGui::Image(
+            video_buffer.video_texture,
+            size, uv_min, uv_max
+        );
+        // ImGuiWindow *window = ImGui::GetCurrentWindow();
+        //TODO: change top_corner() for img_pos passed in from outside
+        // window->DrawList->AddImage(
+        //     (ImTextureID)(uintptr_t)img_data->render_texture,
+        //     top_corner(img_data->offset), bottom_corner(size, top_corner(img_data->offset)),
+        //     uv_min, uv_max,
+        //     ImGui::GetColorU32(My_Variables->tint_col));
+    }
     if (pause && chunk.info.type == CHUNK_video) {
         return;
     }
@@ -382,6 +388,7 @@ void video_player()
     if (success) {
         if (chunk.chunk) {
             free(chunk.chunk);
+            chunk.chunk = NULL;
         }
 
         chunk = read_chunk(video_buffer.fileptr);
