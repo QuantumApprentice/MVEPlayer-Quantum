@@ -363,9 +363,15 @@ void video_player()
     }
 
     if (success) {
+        if (chunk) {
+            if (chunk->chunk) {
+                free(chunk->chunk);
+            }
+        }
+
         chunk = read_chunk(video_buffer.fileptr);
         parse_chunk(chunk);
-        free(chunk->chunk);
+        // free(chunk->chunk);
         if (chunk->info.type == CHUNK_end) {
             if (video_buffer.fileptr) {
                 fclose(video_buffer.fileptr);
