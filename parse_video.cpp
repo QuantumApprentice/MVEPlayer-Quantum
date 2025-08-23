@@ -1533,6 +1533,16 @@ void parse_video_data(uint8_t* buffer)
     int x_offset    = 0;
     int y_offset    = 0;
 
+    int encode_type_previous_frame[0xf];
+    if (debug) {
+        for (int i = 0; i <= 0xF; i++)
+        {
+            encode_type_previous_frame[i] = video_buffer.encode_type[i];
+        }
+        memset(video_buffer.frnt_buffer, 0, video_buffer.render_w*video_buffer.render_h*3);
+        memset(video_buffer.back_buffer, 0, video_buffer.render_w*video_buffer.render_h*3);
+    }
+
     for (int i = 0; i < video_buffer.map_size*2; i++)
     {
         mask = ~mask;
@@ -1556,4 +1566,13 @@ void parse_video_data(uint8_t* buffer)
             y_offset += 8;
         }
     }
+    if (debug) {
+        int encode_type_per_frame[0xf];
+        for (int i = 0; i <= 0xf; i++)
+        {
+            encode_type_per_frame[i] = video_buffer.encode_type[i] - encode_type_previous_frame[i];
+        }
+    }
+
+    printf("stop here\n");
 }

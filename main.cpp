@@ -331,11 +331,25 @@ void video_player()
         }
     }
 
+    static bool pause = false;
+    static bool step  = false;
+    if (ImGui::Button(pause ? "Play" : "Pause")) {
+        pause = !pause;
+    }
+    if (ImGui::Button("frame step")) {
+        step = true;
+    }
+    if (step) {
+        
+    }
+    if (pause) {
+        return;
+    }
+
     if (success) {
         filter_buttons(pos);
         parse_chunk(video_buffer.fileptr);
     } else {
-        // fclose(fileptr);
         ImGui::Text("Unable to open %s", filename);
     }
 }

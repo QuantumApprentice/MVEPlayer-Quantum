@@ -63,83 +63,90 @@ void print_buff(uint8_t* buffer, int w, int h, int pitch, int depth)
 //data_offset should be 0 for this?
 void test_blockCopy_0x00(uint8_t* out_buffer)
 {
-    memset(video_buffer.frnt_buffer, 0xF0, TEST_BUFF_SIZE);
-    memset(video_buffer.back_buffer, 0x0F, TEST_BUFF_SIZE);
+    uint8_t test_buff[TEST_BUFF_SIZE*4] = {
+    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
+    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
+    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
+    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
+    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
+    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
+    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
+    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
 
-    //test1 - copy from same sized buffer, 0 offset
-    int compare = memcmp(video_buffer.pxls, out_buffer, TEST_BUFF_SIZE);
-    printf("before blockCopy_0x00() compare: %d L%d\n", compare,    __LINE__);
+    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
+    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 1,1,1, 1,1,1, 0,0,0, 0,0,0, 0,0,0,
+    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 0,0,0, 0,0,0,
+    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 0,0,0,
+    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 0,0,0,
+    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 0,0,0, 0,0,0,
+    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 1,1,1, 1,1,1, 0,0,0, 0,0,0, 0,0,0,
+    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
+    };
 
-    //actual test
-    int data_offset = blockCopy_0x00(NULL, out_buffer, 0, 0, true, false);
+    uint8_t result_buff[TEST_BUFF_SIZE*4] = {
+    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
+    0,0,0, 0,0,0, 0,0,0, 1,1,1, 1,1,1, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
+    0,0,0, 0,0,0, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
+    0,0,0, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
+    0,0,0, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
+    0,0,0, 0,0,0, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
+    0,0,0, 0,0,0, 0,0,0, 1,1,1, 1,1,1, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
+    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
 
-    compare = memcmp(video_buffer.pxls, out_buffer, TEST_BUFF_SIZE);
-    printf("after blockCopy_0x00() compare: %d L%d\n", compare,     __LINE__);
-    printf("data_offset: %d (should be 0?)     L%d\n", data_offset, __LINE__);
+    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
+    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 1,1,1, 1,1,1, 0,0,0, 0,0,0, 0,0,0,
+    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 0,0,0, 0,0,0,
+    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 0,0,0,
+    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 0,0,0,
+    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 0,0,0, 0,0,0,
+    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 1,1,1, 1,1,1, 0,0,0, 0,0,0, 0,0,0,
+    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
+    };
 
-
-    //test2 - copy from different sized buffer, x & y offset
+    //test1 - copy from backbuffer to test_buff
     if (video_buffer.back_buffer) {
         free(video_buffer.back_buffer);
         video_buffer.back_buffer = NULL;
     }
+    video_buffer.back_buffer = result_buff;
+    video_buffer.pitch       = TEST_BUFF_PITCH;
+    printf("blockCopy_0x00() test 1\n");
+    printf("blockCopy_0x00() before\n");
+    print_buff(test_buff, 16, 16, TEST_BUFF_PITCH, PXL_DEPTH);
+    //actual test 1
+    int offset = blockCopy_0x00(NULL, test_buff, 0, 0, true, false);
 
-    int block_pitch    = video_buffer.block_pitch;
-    video_buffer.pitch = block_pitch * 2;
-    printf("video_buffer.pitch: %d\n", video_buffer.pitch);
+    printf("blockCopy_0x00() after\n");
+    print_buff(test_buff, 16, 16, TEST_BUFF_PITCH, PXL_DEPTH);
 
-    static uint8_t test_buff[TEST_BUFF_SIZE*4] = {
-    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
-    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
-    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
-    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
-    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
-    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
-    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
-    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
+    printf("\noffset: %d (should be 0)\n", offset);
+    int compare = memcmp(result_buff, test_buff, TEST_BUFF_SIZE*4);
+    if (compare == 0) {
+        printf("blockCopy_0x00() test1 Passed.\n\n");
+    } else {
+        printf("blockCopy_0x00() test1 Failed.\n\n");
+    }
 
-    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
-    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 1,1,1, 1,1,1, 0,0,0, 0,0,0, 0,0,0,
-    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 0,0,0, 0,0,0,
-    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 0,0,0,
-    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 0,0,0,
-    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 0,0,0, 0,0,0,
-    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 1,1,1, 1,1,1, 0,0,0, 0,0,0, 0,0,0,
-    0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
-    };
-
+    //test2 - copy from different sized buffer, x & y offset
     video_buffer.back_buffer = test_buff;
 
-    printf("before memset\n");
-    print_buff(out_buffer, 8, 8, block_pitch, PXL_DEPTH);
+    printf("blockCopy_0x00() test 2\n");
+    printf("blockCopy_0x00() before\n");
+    print_buff(test_buff, 16, 16, TEST_BUFF_PITCH, PXL_DEPTH);
 
-    memset(out_buffer, 0, TEST_BUFF_SIZE);
+    //actual test 2
+    offset = blockCopy_0x00(NULL, test_buff, 4,4, true, false);
 
-    printf("before copy\n");
-    print_buff(out_buffer, 8, 8, block_pitch, PXL_DEPTH);
+    printf("blockCopy_0x00() after\n");
+    print_buff(test_buff, 16, 16, TEST_BUFF_PITCH, PXL_DEPTH);
 
-    //actual test
-    data_offset = blockCopy_0x00(NULL, test_buff, 8,8, true, false);
-
-    printf("after copy\n");
-    print_buff(out_buffer, 8, 8, block_pitch, PXL_DEPTH);
-
-    uint8_t check_buff[TEST_BUFF_SIZE] = {
-        0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
-        0,0,0, 0,0,0, 0,0,0, 1,1,1, 1,1,1, 0,0,0, 0,0,0, 0,0,0,
-        0,0,0, 0,0,0, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 0,0,0, 0,0,0,
-        0,0,0, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 0,0,0,
-        0,0,0, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 0,0,0,
-        0,0,0, 0,0,0, 1,1,1, 1,1,1, 1,1,1, 1,1,1, 0,0,0, 0,0,0,
-        0,0,0, 0,0,0, 0,0,0, 1,1,1, 1,1,1, 0,0,0, 0,0,0, 0,0,0,
-        0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,
-    };
-    printf("check_buff----------\n");
-    print_buff(test_buff, 8, 8, video_buffer.pitch, PXL_DEPTH);
-
-    compare = memcmp(check_buff, test_buff, TEST_BUFF_SIZE);
-    printf("after blockCopy_0x00() compare: %d L%d\n", compare,     __LINE__);
-    printf("data_offset: %d (should be 0?)     L%d\n", data_offset, __LINE__);
+    printf("\noffset: %d (should be 0)\n", offset);
+    compare = memcmp(result_buff, test_buff, TEST_BUFF_SIZE*4);
+    if (compare == 0) {
+        printf("blockCopy_0x00() test2 Passed.\n\n");
+    } else {
+        printf("blockCopy_0x00() test2 Failed.\n\n");
+    }
 }
 
 void test_cornerCopy_0x02(uint8_t* out_buffer)
@@ -190,14 +197,15 @@ void test_cornerCopy_0x02(uint8_t* out_buffer)
 
     int offset = cornerCopy_0x02(data_stream, 0, 0, test_buff, true, false);
 
-    printf("\ncornerCopy_0x02() after\n");
+    printf("cornerCopy_0x02() after\n");
     print_buff(test_buff, 16, 16, TEST_BUFF_PITCH, PXL_DEPTH);
 
+    printf("\noffset: %d (should be 1)\n", offset);
     int compare = memcmp(expected_result, test_buff, TEST_BUFF_SIZE*4);
     if (compare == 0) {
-        printf("\ncornerCopy_0x02() Passed.\n\n");
+        printf("cornerCopy_0x02() Passed.\n\n");
     } else {
-        printf("\ncornerCopy_0x02() Failed.\n\n");
+        printf("cornerCopy_0x02() Failed.\n\n");
     }
 }
 
@@ -248,14 +256,14 @@ void test_cornerCopy_0x03(uint8_t* out_buffer)
     uint8_t data_stream[1] = {78};
     int offset = cornerCopy_0x03(data_stream, 0, 0, &test_buff[8*TEST_BUFF_PITCH + 8*3], true, false);
 
-
     printf("cornerCopy_0x03() after\n");
     print_buff(test_buff, 16,16, TEST_BUFF_PITCH, PXL_DEPTH);
 
+    printf("\noffset: %d (should be 1)\n", offset);
     int compare = memcmp(expected_result, test_buff, TEST_BUFF_SIZE*4);
     if (compare == 0) {
-        printf("\ncornerCopy_0x03() Passed.\n\n");
+        printf("cornerCopy_0x03() Passed.\n\n");
     } else {
-        printf("\ncornerCopy_0x03() Failed.\n\n");
+        printf("cornerCopy_0x03() Failed.\n\n");
     }
 }
