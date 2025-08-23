@@ -1509,9 +1509,9 @@ int parse_video_encode(uint8_t op, uint8_t* data_stream, uint8_t* frame_buffer, 
 
 void parse_video_data(uint8_t* buffer)
 {
-    uint8_t* map_stream = video_buffer.map_stream;
     uint8_t* data_stream = buffer;
-    uint8_t* next_frame = video_buffer.pxls;
+    uint8_t* next_frame  = video_buffer.pxls;
+    uint8_t* map_stream  = video_buffer.map_stream;
 
     debug = true;
     int encode_type_previous_frame[0xf];

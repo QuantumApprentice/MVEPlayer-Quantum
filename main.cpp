@@ -27,8 +27,8 @@ struct Chunk {
 
 FILE* open_file(char* filename);
 bool parse_header(FILE* fileptr);
-Chunk* read_chunk(FILE* fileptr);
-void parse_chunk(Chunk* chunk);
+Chunk read_chunk(FILE* fileptr);
+void parse_chunk(Chunk chunk);
 int get_filesize(FILE* fileptr);
 void video_player();
 
@@ -150,8 +150,18 @@ int main(int, char**)
         if (show_demo_window)
             ImGui::ShowDemoWindow(&show_demo_window);
 
-
+        // ImGui::DockSpaceOverViewport();
 #pragma region player_buttons
+#ifdef IMGUI_HAS_VIEWPORT
+        ImGuiViewport* viewport = ImGui::GetMainViewport();
+        ImGui::SetNextWindowPos(viewport->GetWorkPos());
+        ImGui::SetNextWindowSize(viewport->GetWorkSize());
+        ImGui::SetNextWindowViewport(viewport->ID);
+#else 
+        ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
+        ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
+#endif
+
         ImGui::Begin("MVE Player!");
         video_player();
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
@@ -235,6 +245,11 @@ int get_filesize(FILE* fileptr)
 void filter_buttons(ImVec2 pos)
 {
     int spacing = ImGui::GetTextLineHeightWithSpacing();
+    if (pos.x == 0) {
+        pos.x = 100;
+    }
+
+    ImGui::SetCursorPos(ImVec2(pos.x, pos.y + spacing*(0xf+2)));
     bool* allow_blit = video_buffer.allow_blit;
     bool* blit_marker = video_buffer.blit_marker;
     for (int i = 0; i <= 0xF; i++)
@@ -255,7 +270,9 @@ void filter_buttons(ImVec2 pos)
             blit_marker[i] = !blit_marker[i];
         }
         ImGui::SameLine();
-        ImGui::SliderInt("offset", &video_buffer.data_offset[i], -8,8, NULL);
+        ImGui::PushItemWidth(100);
+        ImGui::SliderInt("offset", &video_buffer.data_offset[i], -16,16, NULL);
+        ImGui::PopItemWidth();
         ImGui::PopID();
     }
 
@@ -295,6 +312,8 @@ void video_player()
     // char filename[] = "IPLOGO.MVE";
     // char filename[] = "../../testing/final.mve";
     static ImVec2 pos;
+    static Chunk chunk;
+    static bool pause = false;
 
     if (video_buffer.pxls) {
         ImVec2 uv_min = {0, 0};
@@ -303,7 +322,6 @@ void video_player()
         int height  = video_buffer.render_h;
         float scale = 1;                        //video_buffer.scale;
         ImVec2 size = ImVec2((float)(width * scale), (float)(height * scale));
-
         ImGui::Image(
             video_buffer.video_texture,
             size, uv_min, uv_max
@@ -345,12 +363,11 @@ void video_player()
             video_buffer.encode_type[i] = 0;
         }
     }
-    static Chunk* chunk = NULL;
-    static bool pause    = false;
-    bool rerender = false;
+
     if (ImGui::Button(pause ? "Play" : "Pause")) {
         pause = !pause;
     }
+    bool rerender = false;
     if (ImGui::Button("re-render frame")) {
         rerender = true;
     }
@@ -358,21 +375,18 @@ void video_player()
         parse_chunk(chunk);
     }
     filter_buttons(pos);
-    if (pause && chunk->info.type == CHUNK_video) {
+    if (pause && chunk.info.type == CHUNK_video) {
         return;
     }
 
     if (success) {
-        if (chunk) {
-            if (chunk->chunk) {
-                free(chunk->chunk);
-            }
+        if (chunk.chunk) {
+            free(chunk.chunk);
         }
 
         chunk = read_chunk(video_buffer.fileptr);
         parse_chunk(chunk);
-        // free(chunk->chunk);
-        if (chunk->info.type == CHUNK_end) {
+        if (chunk.info.type == CHUNK_end) {
             if (video_buffer.fileptr) {
                 fclose(video_buffer.fileptr);
                 video_buffer.fileptr = NULL;
@@ -386,33 +400,36 @@ void video_player()
 
 
 
-Chunk* read_chunk(FILE* fileptr)
+Chunk read_chunk(FILE* fileptr)
 {
+    Chunk chunk = {
+        .chunk = NULL
+    };
+    static int chunk_count = 0;
     if (!fileptr) {
-        return NULL;
+        return chunk;
     }
     int position = ftell(fileptr);
     if (position >= video_buffer.file_size || position < 0) {
-        return NULL;
+        return chunk;
     }
 
-    static Chunk chunk;
 
     fread(&chunk.info, sizeof(chunk.info), 1, fileptr);
     chunk.chunk = (uint8_t*)calloc(1, chunk.info.size);
     fread(chunk.chunk, chunk.info.size, 1, fileptr);
-    printf("chunk -- size: %d type: %d\n", chunk.info.size, chunk.info.type);
+    printf("chunk #%d -- size: %d type: %d\n", chunk_count, chunk.info.size, chunk.info.type);
 
-    return &chunk;
+    return chunk;
 }
 
-void parse_chunk(Chunk* chunk)
+void parse_chunk(Chunk chunk)
 {
-    switch (chunk->info.type)
+    switch (chunk.info.type)
     {
     case CHUNK_init_audio:
         printf("initing audio\n");
-        init_audio(chunk->chunk);
+        init_audio(chunk.chunk);
         // fseek(fileptr, info.size, SEEK_CUR);
         //TODO: init the flipping audio
         break;
@@ -423,11 +440,11 @@ void parse_chunk(Chunk* chunk)
         break;
     case CHUNK_init_video:
         printf("initing video\n");
-        init_video(chunk->chunk, chunk->info);
+        init_video(chunk.chunk, chunk.info);
         break;
     case CHUNK_video:
         printf("processing video\n");
-        parse_video_chunk(chunk->chunk, chunk->info);
+        parse_video_chunk(chunk.chunk, chunk.info);
         break;
     case CHUNK_shutdown:
         printf("shutting down\n");
