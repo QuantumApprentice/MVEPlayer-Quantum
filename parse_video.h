@@ -74,15 +74,17 @@ struct video {
     };
 
     int data_offset_init = 0;
+
+    int data_offset[0xF+1];
 };
 extern video video_buffer;
 
-void init_video(FILE* fileptr, chunkinfo info);
+void init_video(uint8_t* chunk, chunkinfo info);
 void init_video_buffer(uint8_t* buffer, uint8_t version);
 void init_video_mode(uint8_t* buffer);
 void init_palette(uint8_t* buffer);
 
-void parse_video_chunk(FILE* fileptr, chunkinfo info);
+void parse_video_chunk(uint8_t* chunk, chunkinfo info);
 void create_timer(uint8_t* buffer);
 void parse_decoding_map(uint8_t* buffer, int size);
 

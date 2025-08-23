@@ -20,10 +20,15 @@
 #include <malloc.h>
 
 video video_buffer;
+struct Chunk {
+    chunkinfo info;
+    uint8_t* chunk;
+};
 
 FILE* open_file(char* filename);
 bool parse_header(FILE* fileptr);
-void parse_chunk(FILE* fileptr);
+Chunk* read_chunk(FILE* fileptr);
+void parse_chunk(Chunk* chunk);
 int get_filesize(FILE* fileptr);
 void video_player();
 
@@ -249,6 +254,8 @@ void filter_buttons(ImVec2 pos)
         if (ImGui::Button(blit_marker[i] ? "Unmark" : "Mark")) {
             blit_marker[i] = !blit_marker[i];
         }
+        ImGui::SameLine();
+        ImGui::SliderInt("offset", &video_buffer.data_offset[i], -8,8, NULL);
         ImGui::PopID();
     }
 
@@ -265,13 +272,21 @@ void filter_buttons(ImVec2 pos)
         {
             allow_blit[i] = true;
         }
-        
     }
 
     //TODO: testing purposes
     ImGui::NewLine();
     ImGui::SliderInt("data_offset", &video_buffer.data_offset_init, -8, 8, NULL);
 }
+
+enum CHUNK {
+    CHUNK_init_audio  =  0,
+    CHUNK_audio       =  1,
+    CHUNK_init_video  =  2,
+    CHUNK_video       =  3,
+    CHUNK_shutdown    =  4,
+    CHUNK_end         =  5,
+};
 
 void video_player()
 {
@@ -330,85 +345,93 @@ void video_player()
             video_buffer.encode_type[i] = 0;
         }
     }
-
-    static bool pause = false;
-    static bool step  = false;
+    static Chunk* chunk = NULL;
+    static bool pause    = false;
+    bool rerender = false;
     if (ImGui::Button(pause ? "Play" : "Pause")) {
         pause = !pause;
     }
-    if (ImGui::Button("frame step")) {
-        step = true;
+    if (ImGui::Button("re-render frame")) {
+        rerender = true;
     }
-    if (step) {
-        
+    if (rerender) {
+        parse_chunk(chunk);
     }
-    if (pause) {
+    filter_buttons(pos);
+    if (pause && chunk->info.type == CHUNK_video) {
         return;
     }
 
     if (success) {
-        filter_buttons(pos);
-        parse_chunk(video_buffer.fileptr);
+        chunk = read_chunk(video_buffer.fileptr);
+        parse_chunk(chunk);
+        free(chunk->chunk);
+        if (chunk->info.type == CHUNK_end) {
+            if (video_buffer.fileptr) {
+                fclose(video_buffer.fileptr);
+                video_buffer.fileptr = NULL;
+            }
+            success = false;
+        }
     } else {
         ImGui::Text("Unable to open %s", filename);
     }
 }
 
-enum CHUNK {
-    CHUNK_init_audio  =  0,
-    CHUNK_audio       =  1,
-    CHUNK_init_video  =  2,
-    CHUNK_video       =  3,
-    CHUNK_shutdown    =  4,
-    CHUNK_end         =  5,
-};
 
-void parse_chunk(FILE* fileptr)
+
+Chunk* read_chunk(FILE* fileptr)
 {
     if (!fileptr) {
-        return;
+        return NULL;
     }
     int position = ftell(fileptr);
     if (position >= video_buffer.file_size || position < 0) {
-        return;
+        return NULL;
     }
 
-    chunkinfo info;
-    fread(&info, sizeof(info), 1, fileptr);
-    // printf("length: %04x : %d\n", info.size, info.size);
-    // printf("type:   %04x\n", info.type);
+    static Chunk chunk;
 
-    switch (info.type)
+    fread(&chunk.info, sizeof(chunk.info), 1, fileptr);
+    chunk.chunk = (uint8_t*)calloc(1, chunk.info.size);
+    fread(chunk.chunk, chunk.info.size, 1, fileptr);
+    printf("chunk -- size: %d type: %d\n", chunk.info.size, chunk.info.type);
+
+    return &chunk;
+}
+
+void parse_chunk(Chunk* chunk)
+{
+    switch (chunk->info.type)
     {
     case CHUNK_init_audio:
         printf("initing audio\n");
-        init_audio(fileptr);
-        fseek(fileptr, info.size, SEEK_CUR);
+        init_audio(chunk->chunk);
+        // fseek(fileptr, info.size, SEEK_CUR);
         //TODO: init the flipping audio
         break;
     case CHUNK_audio:
         printf("skipping processing audio\n");
-        fseek(fileptr, info.size, SEEK_CUR);
+        // fseek(fileptr, info.size, SEEK_CUR);
         //TODO: process the audio
         break;
     case CHUNK_init_video:
         printf("initing video\n");
-        init_video(fileptr, info);
+        init_video(chunk->chunk, chunk->info);
         break;
     case CHUNK_video:
         printf("processing video\n");
-        parse_video_chunk(fileptr, info);
-        video_buffer.frame_count++;
+        parse_video_chunk(chunk->chunk, chunk->info);
         break;
     case CHUNK_shutdown:
         printf("shutting down\n");
-        fseek(fileptr, info.size, SEEK_CUR);
+        // fseek(fileptr, info.size, SEEK_CUR);
         //TODO: handle shutdown
         break;
     case CHUNK_end:
         printf("end of file\n");
-        fseek(fileptr, info.size, SEEK_CUR);
-        fclose(fileptr);
+        // fseek(fileptr, info.size, SEEK_CUR);
+        // fclose(fileptr);
         video_buffer.fileptr = NULL;
         //TODO: nothing?
         break;

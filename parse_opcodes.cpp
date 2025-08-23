@@ -67,6 +67,7 @@ void parse_opcode(opcodeinfo op, uint8_t* buffer)
         break;
 
     default:
+        printf("missing or wrong opcode: %d\n", op.type);
         break;
     }
 }

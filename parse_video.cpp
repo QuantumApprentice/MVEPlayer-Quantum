@@ -134,11 +134,11 @@ void init_palette(uint8_t* buffer)
     }
 }
 
-void init_video(FILE* fileptr, chunkinfo info)
+void init_video(uint8_t* chunk, chunkinfo info)
 {
-    uint8_t* chunk = (uint8_t*)calloc(1, info.size);
-    fread(chunk, info.size, 1, fileptr);
-    printf("chunk -- size: %d type: %d\n", info.size, info.type);
+    // uint8_t* chunk = (uint8_t*)calloc(1, info.size);
+    // fread(chunk, info.size, 1, fileptr);
+    // printf("chunk -- size: %d type: %d\n", info.size, info.type);
 
     int offset = 0;
     while (offset < info.size)
@@ -151,7 +151,7 @@ void init_video(FILE* fileptr, chunkinfo info)
         parse_opcode(op, &chunk[offset]);
         offset += op.size;
     }
-    free(chunk);
+    // free(chunk);
 }
 
 void create_timer(uint8_t* buffer)
@@ -165,6 +165,7 @@ void create_timer(uint8_t* buffer)
 
 void send_buffer_to_display(uint8_t* buffer)
 {
+    video_buffer.frame_count++;
     struct pal_info {
         uint16_t start;
         uint16_t count;
@@ -190,24 +191,21 @@ void send_buffer_to_display(uint8_t* buffer)
     }
 }
 
-void parse_video_chunk(FILE* fileptr, chunkinfo info)
+void parse_video_chunk(uint8_t* chunk, chunkinfo info)
 {
-    uint8_t* chunk = (uint8_t*)calloc(1, info.size);
-    fread(chunk, info.size, 1, fileptr);
-    printf("chunk -- size: %d type: %d\n", info.size, info.type);
-
+    static int chunk_num = 0;
     int offset = 0;
     while (offset < info.size) {
         opcodeinfo op;
         memcpy(&op, &chunk[offset], sizeof(op));
-        printf("op -- len: %d, type: %04x, ver: %d\n", op.size, op.type, op.version);
+        // printf("op -- len: %d, type: %04x, ver: %d\n", op.size, op.type, op.version);
 
         offset += 4;
+
         parse_opcode(op, &chunk[offset]);
         offset += op.size;
     }
-    printf("done processing video chunk\n");
-    free(chunk);
+    printf("done processing video chunk# %d\n", chunk_num++);
 }
 
 void parse_decoding_map(uint8_t* buffer, int size)
@@ -1482,7 +1480,7 @@ int parse_video_encode(uint8_t op, uint8_t* data_stream, uint8_t* frame_buffer, 
         //offset = 24;
         break;
     case 0x0B:
-        offset = raw_pixels_0x0B(data_stream, &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
+        offset = raw_pixels_0x0B(&data_stream[video_buffer.data_offset[op]], &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 64;
         break;
     case 0x0C:
@@ -1513,36 +1511,26 @@ void parse_video_data(uint8_t* buffer)
 {
     uint8_t* map_stream = video_buffer.map_stream;
     uint8_t* data_stream = buffer;
-
     uint8_t* next_frame = video_buffer.pxls;
 
-    uint8_t mask    = 0x0F;
-
-
-
-
-    //TODO: clean up testing function call
-    // int data_offset = 0;
-    int data_offset = video_buffer.data_offset_init;
-
-
-
-
-    int frame_pitch = video_buffer.pitch;
-    // x_offset & y_offset == offset into the framebuffer in pixels
-    int x_offset    = 0;
-    int y_offset    = 0;
-
+    debug = true;
     int encode_type_previous_frame[0xf];
+    int encode_type_per_frame[0xf];
     if (debug) {
         for (int i = 0; i <= 0xF; i++)
         {
             encode_type_previous_frame[i] = video_buffer.encode_type[i];
         }
-        memset(video_buffer.frnt_buffer, 0, video_buffer.render_w*video_buffer.render_h*3);
-        memset(video_buffer.back_buffer, 0, video_buffer.render_w*video_buffer.render_h*3);
+        // memset(video_buffer.frnt_buffer, 0, video_buffer.render_w*video_buffer.render_h*3);
+        // memset(video_buffer.back_buffer, 0, video_buffer.render_w*video_buffer.render_h*3);
     }
 
+    // x_offset & y_offset == offset into the framebuffer in pixels
+    int x_offset    = 0;
+    int y_offset    = 0;
+    uint8_t mask    = 0x0F;
+    int data_offset = video_buffer.data_offset_init;
+    int frame_pitch = video_buffer.pitch;
     for (int i = 0; i < video_buffer.map_size*2; i++)
     {
         mask = ~mask;
@@ -1567,12 +1555,12 @@ void parse_video_data(uint8_t* buffer)
         }
     }
     if (debug) {
-        int encode_type_per_frame[0xf];
         for (int i = 0; i <= 0xf; i++)
         {
             encode_type_per_frame[i] = video_buffer.encode_type[i] - encode_type_previous_frame[i];
         }
     }
+    debug = false;
 
     printf("stop here\n");
 }
