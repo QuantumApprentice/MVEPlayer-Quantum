@@ -73,8 +73,8 @@ struct video {
         true        // F // dithered_0x0F
     };
 
-    int data_offset_init = 0;
-
+    uint8_t encode_bits = 0xF0;
+    int data_offset_init = 14;
     int data_offset[0xF+1];
 };
 extern video video_buffer;

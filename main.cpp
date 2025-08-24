@@ -354,12 +354,20 @@ void video_player()
     if (ImGui::Button(pause ? "Play" : "Pause")) {
         pause = !pause;
     }
+    if (ImGui::Button(video_buffer.encode_bits == 0xF0 ? "Swap to low bits first (0x0F)" : "Swap to high bits first (0xF0)")) {
+        video_buffer.encode_bits = ~video_buffer.encode_bits;
+    }
+
     static float scale = 1;                        //video_buffer.scale;
     ImGui::PushItemWidth(100);
     ImGui::DragFloat("Zoom", &scale, .01, 0, 2.0);
     bool rerender = false;
 
+    //buttons
     rerender = filter_buttons();
+    if (ImGui::Button("reset offsets")) {
+        memset(video_buffer.data_offset, 0, (0xF+1)*sizeof(int));
+    }
     if (ImGui::Button("re-render frame")) {
         rerender = true;
     }
