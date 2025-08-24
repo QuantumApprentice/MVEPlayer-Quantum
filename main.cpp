@@ -353,10 +353,11 @@ void video_player()
     ImGui::PushItemWidth(100);
     ImGui::DragFloat("Zoom", &scale, .01, 0, 2.0);
     bool rerender = false;
+
+    rerender = filter_buttons();
     if (ImGui::Button("re-render frame")) {
         rerender = true;
     }
-    rerender = filter_buttons();
     if (rerender) {
         parse_chunk(chunk);
     }
