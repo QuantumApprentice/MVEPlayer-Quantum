@@ -354,7 +354,7 @@ void video_player()
     if (ImGui::Button(pause ? "Play" : "Pause")) {
         pause = !pause;
     }
-    if (ImGui::Button(video_buffer.encode_bits == 0xF0 ? "Swap to low bits first (0x0F)" : "Swap to high bits first (0xF0)")) {
+    if (ImGui::Button(video_buffer.encode_bits == 0x0F ? "low order bits first (0x0F)" : "high order bits first (0xF0)")) {
         video_buffer.encode_bits = ~video_buffer.encode_bits;
     }
 

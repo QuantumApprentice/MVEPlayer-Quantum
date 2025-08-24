@@ -1533,11 +1533,11 @@ void parse_video_data(uint8_t* buffer)
     int frame_pitch = video_buffer.pitch;
     for (int i = 0; i < video_buffer.map_size*2; i++)
     {
-        mask = ~mask;
         uint8_t enc = map_stream[i/2] & mask;
         if (mask == 0xF0) {
             enc >>= 4;
         }
+        mask = ~mask;
 
         // printf("enc: %0x  data_offset: %d\n", enc, data_offset);
         data_offset += parse_video_encode(
