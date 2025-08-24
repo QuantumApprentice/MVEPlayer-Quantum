@@ -267,6 +267,9 @@ bool filter_buttons()
     for (int i = 0; i <= 0xF; i++)
     {
         ImGui::PushID(i);
+        if (i == 1) {
+            ImGui::BeginDisabled();
+        }
         ImGui::PushItemWidth(100);
         rerender[i] = ImGui::SliderInt("offset", &video_buffer.data_offset[i], -16,16, NULL);
         ImGui::PopItemWidth();
@@ -284,7 +287,9 @@ bool filter_buttons()
         if (ImGui::Button(blit_marker[i] ? "Unmark" : "Mark")) {
             blit_marker[i] = !blit_marker[i];
         }
-
+        if (i == 1) {
+            ImGui::EndDisabled();
+        }
         ImGui::PopID();
     }
 
