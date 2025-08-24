@@ -1424,31 +1424,32 @@ int parse_video_encode(uint8_t op, uint8_t* data_stream, uint8_t* frame_buffer, 
 
     bool* allow_blit = video_buffer.allow_blit;
     bool* blit_mark  = video_buffer.blit_marker;
+    int* data_offset = video_buffer.data_offset;
 
     int offset = 0;
     switch (op)
     {
     case 0x00:
-        offset = blockCopy_0x00(&data_stream[video_buffer.data_offset[op]], frame_buffer, x_offset, y_offset, allow_blit[op], blit_mark[op]);
+        offset = blockCopy_0x00(&data_stream[data_offset[op]], frame_buffer, x_offset, y_offset, allow_blit[op], blit_mark[op]);
         //offset = 0;
         break;
     case 0x01:
         offset = 0;
         break;
     case 0x02:
-        offset = cornerCopy_0x02(&data_stream[video_buffer.data_offset[op]], x_offset, y_offset, frame_buffer, allow_blit[op], blit_mark[op]);
+        offset = cornerCopy_0x02(&data_stream[data_offset[op]], x_offset, y_offset, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 1;
         break;
     case 0x03:
-        offset = cornerCopy_0x03(&data_stream[video_buffer.data_offset[op]],x_offset, y_offset, frame_buffer, allow_blit[op], blit_mark[op]);
+        offset = cornerCopy_0x03(&data_stream[data_offset[op]],x_offset, y_offset, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 1;
         break;
     case 0x04:
-        offset = symmetricCopy_0x04(&data_stream[video_buffer.data_offset[op]],x_offset, y_offset, frame_buffer, allow_blit[op], blit_mark[op]);
+        offset = symmetricCopy_0x04(&data_stream[data_offset[op]],x_offset, y_offset, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 1;
         break;
     case 0x05:
-        offset = symmetricCopy_0x05(&data_stream[video_buffer.data_offset[op]],x_offset, y_offset, frame_buffer, allow_blit[op], blit_mark[op]);
+        offset = symmetricCopy_0x05(&data_stream[data_offset[op]],x_offset, y_offset, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 2;
         break;
     case 0x06:
@@ -1456,47 +1457,47 @@ int parse_video_encode(uint8_t op, uint8_t* data_stream, uint8_t* frame_buffer, 
         //no opcode 0x06 found so far
         break;
     case 0x07:
-        offset = pattern_0x07(&data_stream[video_buffer.data_offset[op]], &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
+        offset = pattern_0x07(&data_stream[data_offset[op]], &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 10;
         //  or
         //offset = 4;
         break;
     case 0x08:
-        offset = pattern_0x08(&data_stream[video_buffer.data_offset[op]], &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
+        offset = pattern_0x08(&data_stream[data_offset[op]], &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 16;
         //  or
         //offset = 12;
         break;
     case 0x09:
-        offset = pattern_0x09(&data_stream[video_buffer.data_offset[op]], &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
+        offset = pattern_0x09(&data_stream[data_offset[op]], &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 20;
         //offset = 8;
         //offset = 12;
         //offset = 12;
         break;
     case 0x0A:
-        offset = pattern_0x0A(&data_stream[video_buffer.data_offset[op]], &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
+        offset = pattern_0x0A(&data_stream[data_offset[op]], &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 32;
         //offset = 24;
         break;
     case 0x0B:
-        offset = raw_pixels_0x0B(&data_stream[video_buffer.data_offset[op]], &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
+        offset = raw_pixels_0x0B(&data_stream[data_offset[op]], &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 64;
         break;
     case 0x0C:
-        offset = raw_pixels_0x0C(&data_stream[video_buffer.data_offset[op]], &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
+        offset = raw_pixels_0x0C(&data_stream[data_offset[op]], &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 16;
         break;
     case 0x0D:
-        offset = raw_pixels_0x0D(&data_stream[video_buffer.data_offset[op]], &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
+        offset = raw_pixels_0x0D(&data_stream[data_offset[op]], &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 4;
         break;
     case 0x0E:
-        offset = solid_frame_0x0E(&data_stream[video_buffer.data_offset[op]], &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
+        offset = solid_frame_0x0E(&data_stream[data_offset[op]], &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 1;
         break;
     case 0x0F:
-        offset = dithered_0x0F(&data_stream[video_buffer.data_offset[op]], &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
+        offset = dithered_0x0F(&data_stream[data_offset[op]], &video_buffer, frame_buffer, allow_blit[op], blit_mark[op]);
         //offset = 2;
         break;
 
