@@ -267,7 +267,7 @@ bool filter_buttons()
     for (int i = 0; i <= 0xF; i++)
     {
         ImGui::PushID(i);
-        if (i == 1) {
+        if (i == 1 || i == 6) {
             ImGui::BeginDisabled();
         }
         ImGui::PushItemWidth(100);
@@ -287,7 +287,7 @@ bool filter_buttons()
         if (ImGui::Button(blit_marker[i] ? "Unmark" : "Mark")) {
             blit_marker[i] = !blit_marker[i];
         }
-        if (i == 1) {
+        if (i == 1 || i == 6) {
             ImGui::EndDisabled();
         }
         ImGui::PopID();
@@ -426,7 +426,6 @@ Chunk read_chunk(FILE* fileptr)
     Chunk chunk = {
         .chunk = NULL
     };
-    static int chunk_count = 0;
     if (!fileptr) {
         return chunk;
     }
@@ -439,7 +438,8 @@ Chunk read_chunk(FILE* fileptr)
     fread(&chunk.info, sizeof(chunk.info), 1, fileptr);
     chunk.chunk = (uint8_t*)calloc(1, chunk.info.size);
     fread(chunk.chunk, chunk.info.size, 1, fileptr);
-    printf("chunk #%d -- size: %d type: %d\n", chunk_count, chunk.info.size, chunk.info.type);
+    // static int chunk_count = 0;
+    // printf("chunk #%d -- size: %d type: %d\n", chunk_count, chunk.info.size, chunk.info.type);
 
     return chunk;
 }

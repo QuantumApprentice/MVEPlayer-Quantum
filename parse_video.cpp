@@ -145,7 +145,7 @@ void init_video(uint8_t* chunk, chunkinfo info)
     {
         opcodeinfo op;
         memcpy(&op, &chunk[offset], sizeof(op));
-        printf("op -- len: %d, type: 0x%02X, ver: %d\n", op.size, op.type, op.version);
+        // printf("op -- len: %d, type: 0x%02X, ver: %d\n", op.size, op.type, op.version);
 
         offset += 4;
         parse_opcode(op, &chunk[offset]);
@@ -1513,7 +1513,7 @@ void parse_video_data(uint8_t* buffer)
     uint8_t* next_frame  = video_buffer.pxls;
     uint8_t* map_stream  = video_buffer.map_stream;
 
-    debug = true;
+    // debug = true;
     int encode_type_previous_frame[0xf];
     int encode_type_per_frame[0xf];
     if (debug) {
@@ -1541,11 +1541,11 @@ void parse_video_data(uint8_t* buffer)
 
         // printf("enc: %0x  data_offset: %d\n", enc, data_offset);
         data_offset += parse_video_encode(
-            enc,
-            &data_stream[data_offset],
-            &next_frame[y_offset*frame_pitch + x_offset*3],
-            x_offset,
-            y_offset
+                        enc,
+                        &data_stream[data_offset],
+                        &next_frame[y_offset*frame_pitch + x_offset*3],
+                        x_offset,
+                        y_offset
         );
 
         x_offset += 8;
@@ -1560,7 +1560,5 @@ void parse_video_data(uint8_t* buffer)
             encode_type_per_frame[i] = video_buffer.encode_type[i] - encode_type_previous_frame[i];
         }
     }
-    debug = false;
-
-    printf("stop here\n");
+    // debug = false;
 }

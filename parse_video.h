@@ -56,7 +56,7 @@ struct video {
     bool blit_marker[16];
     bool allow_blit[16] = {
         true,       // 0 // blockCopy_0x00
-        true,       // 1 // 
+        true,       // 1 // no-op
         true,       // 2 // cornerCopy_0x02
         true,       // 3 // cornerCopy_0x03
         true,       // 4 // symmetricCopy_0x04
