@@ -17,6 +17,7 @@
 
 #include "parse_video.h"
 #include "parse_audio.h"
+#include "io_Platform.h"
 #include <malloc.h>
 
 video video_buffer;
@@ -80,6 +81,7 @@ int main(int, char**)
     if (window == nullptr)
         return 1;
     glfwSetKeyCallback(window, key_callback);
+    glfwSetDropCallback(window, file_drop_callback);
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1); // Enable vsync
 
@@ -312,6 +314,40 @@ enum CHUNK {
     CHUNK_end         =  5,
 };
 
+bool load_file(char* filename)
+{
+    printf("Parsing %s\n", filename);
+
+    if (video_buffer.fileptr) {
+        fclose(video_buffer.fileptr);
+        video_buffer.fileptr = NULL;
+    }
+    if (video_buffer.pxls) {
+        free(video_buffer.frnt_buffer);
+        free(video_buffer.back_buffer);
+        video_buffer.pxls        = NULL;
+        video_buffer.frnt_buffer = NULL;
+        video_buffer.back_buffer = NULL;
+    }
+
+    video_buffer.fileptr = open_file(filename);
+    if (!video_buffer.fileptr) {
+        return false;
+    } else {
+        video_buffer.file_size = get_filesize(video_buffer.fileptr);
+        bool isMVE = parse_header(video_buffer.fileptr);
+        if (!isMVE) {
+            return false;
+        }
+        video_buffer.frame_count = 0;
+        for (int i = 0; i < 16; i++)
+        {
+            video_buffer.encode_type[i] = 0;
+        }
+    }
+    return true;
+}
+
 void video_player()
 {
     static bool success = false;
@@ -325,7 +361,7 @@ void video_player()
     };
 
     static float scale = 1;                        //video_buffer.scale;
-    ImGui::PushItemWidth(100);
+    ImGui::PushItemWidth(200);
     ImGui::DragFloat("Zoom", &scale, .01, 0, 2.0);
 
     static ImVec2 pos = ImGui::GetCursorPos();
@@ -333,41 +369,26 @@ void video_player()
     static bool pause = false;
     static int which_file = 0;
     ImGui::Combo("file", &which_file,
+        video_buffer.filename ? video_buffer.filename :
         "FO1 IPLOGO.MVE\0"
         "FO2 IPLOGO.MVE\0"
         "MR  final.mve\0"
     );
     ImGui::PopItemWidth();
 
-    char* filename = files[which_file].filename;
+    // char* filename = files[which_file].filename;
+    char* filename = video_buffer.filename ? video_buffer.filename : files[which_file].filename;
+    if (video_buffer.file_drop_frame) {
+        video_buffer.file_drop_frame = false;
+        success = load_file(filename);
+    }
     if (ImGui::Button("Play MVE")) {
-        printf("Parsing IPLOGO.MVE\n");
-
-        if (video_buffer.fileptr) {
-            fclose(video_buffer.fileptr);
-            video_buffer.fileptr = NULL;
-        }
-        if (video_buffer.pxls) {
-            free(video_buffer.frnt_buffer);
-            free(video_buffer.back_buffer);
-            video_buffer.pxls        = NULL;
-            video_buffer.frnt_buffer = NULL;
-            video_buffer.back_buffer = NULL;
-        }
-
-        video_buffer.fileptr = open_file(filename);
-        if (!video_buffer.fileptr) {
-            success = false;
-        } else {
-            video_buffer.file_size = get_filesize(video_buffer.fileptr);
-            success = parse_header(video_buffer.fileptr);
-            video_buffer.frame_count = 0;
-            for (int i = 0; i < 16; i++)
-            {
-                video_buffer.encode_type[i] = 0;
-            }
-        }
-
+        success = load_file(filename);
+    }
+    ImGui::SameLine();
+    if (video_buffer.timer.rate != 0) {
+        float fps = 1000000.0f/(video_buffer.timer.rate*video_buffer.timer.subdivision);
+        ImGui::Text("Target FPS: %f", fps);
     }
 
     if (ImGui::Button(pause ? "Play" : "Pause")) {

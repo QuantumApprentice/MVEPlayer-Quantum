@@ -11,8 +11,9 @@ target_sources(
     parse_audio.cpp
     parse_opcodes.cpp
     MiniSDL.cpp
-    io_OpenGL.cpp
     shader_class.cpp
+    io_OpenGL.cpp
+    io_Platform.cpp
 )
 
 add_library(ImGui

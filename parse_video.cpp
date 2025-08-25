@@ -159,7 +159,7 @@ void create_timer(uint8_t* buffer)
     memcpy(&video_buffer.timer, buffer, sizeof(video_buffer.timer));
 
     if (debug) {
-        printf("rate: %d, subdivision: %d\n", video_buffer.timer.rate, video_buffer.timer.subdivision);
+        printf("frame rate: %d, subdivision: %d\n", video_buffer.timer.rate, video_buffer.timer.subdivision);
     }
 }
 
@@ -1532,6 +1532,7 @@ void parse_video_data(uint8_t* buffer)
     int y_offset    = 0;
     uint8_t mask    = video_buffer.encode_bits;
     int data_offset = video_buffer.data_offset_init;
+    // int data_offset = 14;
     int frame_pitch = video_buffer.pitch;
     for (int i = 0; i < video_buffer.map_size*2; i++)
     {

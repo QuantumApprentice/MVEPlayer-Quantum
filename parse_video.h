@@ -24,6 +24,8 @@ struct timer_struct {
 #pragma pack(pop)
 
 struct video {
+    bool file_drop_frame = false;
+    char* filename = NULL;
     FILE* fileptr = NULL;
     uint8_t* frnt_buffer = NULL;
     uint8_t* back_buffer = NULL;
