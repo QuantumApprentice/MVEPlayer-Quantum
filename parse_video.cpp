@@ -413,8 +413,8 @@ int symmetricCopy_0x05(uint8_t* data_stream, int x_offset, int y_offset, uint8_t
 
     // offset from current position
     Rect src_rect = {
-        .x = B[0],
-        .y = B[1],
+        .x = B[0] + x_offset,
+        .y = B[1] + y_offset,
         .w = 8,
         .h = 8
     };
@@ -438,6 +438,7 @@ int symmetricCopy_0x05(uint8_t* data_stream, int x_offset, int y_offset, uint8_t
         .h = 8,
     };
     BlitSurface(current, src_rect, frame_pitch, block_buff, buff_rect, buff_pitch);
+    // BlitSurface(&current[y_offset*frame_pitch + x_offset], src_rect, frame_pitch, block_buff, buff_rect, buff_pitch);
     if (mark) {
         PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
     }

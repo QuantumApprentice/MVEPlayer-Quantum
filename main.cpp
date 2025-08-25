@@ -315,14 +315,31 @@ enum CHUNK {
 void video_player()
 {
     static bool success = false;
-    char filename[] = "../../testing/IPLOGO.MVE";
-    // char filename[] = "IPLOGO.MVE";
-    // char filename[] = "../../testing/final.mve";
-    static ImVec2 pos;
+
+    struct file_list {
+        char filename[32];
+    } files[3] = {
+        "../../testing/FO1/IPLOGO.MVE",
+        "../../testing/FO2/IPLOGO.MVE",
+        "../../testing/final.mve",
+    };
+
+    static float scale = 1;                        //video_buffer.scale;
+    ImGui::PushItemWidth(100);
+    ImGui::DragFloat("Zoom", &scale, .01, 0, 2.0);
+
+    static ImVec2 pos = ImGui::GetCursorPos();
     static Chunk chunk;
     static bool pause = false;
-    pos = ImGui::GetCursorPos();
+    static int which_file = 0;
+    ImGui::Combo("file", &which_file,
+        "FO1 IPLOGO.MVE\0"
+        "FO2 IPLOGO.MVE\0"
+        "MR  final.mve\0"
+    );
+    ImGui::PopItemWidth();
 
+    char* filename = files[which_file].filename;
     if (ImGui::Button("Play MVE")) {
         printf("Parsing IPLOGO.MVE\n");
 
@@ -341,14 +358,16 @@ void video_player()
         video_buffer.fileptr = open_file(filename);
         if (!video_buffer.fileptr) {
             success = false;
+        } else {
+            video_buffer.file_size = get_filesize(video_buffer.fileptr);
+            success = parse_header(video_buffer.fileptr);
+            video_buffer.frame_count = 0;
+            for (int i = 0; i < 16; i++)
+            {
+                video_buffer.encode_type[i] = 0;
+            }
         }
-        video_buffer.file_size = get_filesize(video_buffer.fileptr);
-        success = parse_header(video_buffer.fileptr);
-        video_buffer.frame_count = 0;
-        for (int i = 0; i < 16; i++)
-        {
-            video_buffer.encode_type[i] = 0;
-        }
+
     }
 
     if (ImGui::Button(pause ? "Play" : "Pause")) {
@@ -358,12 +377,8 @@ void video_player()
         video_buffer.encode_bits = ~video_buffer.encode_bits;
     }
 
-    static float scale = 1;                        //video_buffer.scale;
-    ImGui::PushItemWidth(100);
-    ImGui::DragFloat("Zoom", &scale, .01, 0, 2.0);
-    bool rerender = false;
-
     //buttons
+    bool rerender = false;
     rerender = filter_buttons();
     if (ImGui::Button("reset offsets")) {
         memset(video_buffer.data_offset, 0, (0xF+1)*sizeof(int));
