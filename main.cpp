@@ -387,8 +387,15 @@ void video_player()
     }
     ImGui::SameLine();
     if (video_buffer.timer.rate != 0) {
-        float fps = 1000000.0f/(video_buffer.timer.rate*video_buffer.timer.subdivision);
+        int rate = video_buffer.timer.rate;
+        int subd = video_buffer.timer.subdivision;
+        float fps = 1000000.0f/(rate*subd);
         ImGui::Text("Target FPS: %f", fps);
+        ImGui::SetItemTooltip(
+            "rate (ms to display frame/subdivision) : %d\n"
+            "subdivision (dunno, so far always 8)   : %d\n"
+            "FPS = 1000000.0f/(rate*subd)", rate, subd
+        );
     }
 
     if (ImGui::Button(pause ? "Play" : "Pause")) {

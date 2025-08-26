@@ -176,7 +176,7 @@ void send_buffer_to_display(uint8_t* buffer)
 
     //TODO: should I use palette to convert pixels here?
     //      instead of during the paint process?
-    printf("pal start: %d, pal count: %d, unkown: %d\n", info.start, info.count, info.unknown);
+    // printf("pal start: %d, pal count: %d, unkown: %d\n", info.start, info.count, info.unknown);
 
     GLuint tex = video_buffer.video_texture;
     int w      = video_buffer.render_w;
