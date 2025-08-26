@@ -103,7 +103,7 @@ int cornerCopy_0x03(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* d
 int symmetricCopy_0x04(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* dst_buff, bool blit, bool mark);
 int symmetricCopy_0x05(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* dst_buff, bool blit, bool mark);
 int pattern_0x07(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool blit, bool mark);
-int pattern_0x08(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool blit, bool mark);
+int pattern_0x08(uint8_t* data_stream, uint8_t* dst_buff, bool blit, bool mark);
 int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool blit, bool mark);
 int pattern_0x0A(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool blit, bool mark);
 int raw_pixels_0x0B(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff, bool blit, bool mark);
