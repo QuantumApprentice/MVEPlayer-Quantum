@@ -43,11 +43,10 @@ void init_video_mode(uint8_t* buffer)
     videoinit_info initinfo;
     memcpy(&initinfo, buffer, sizeof(initinfo));
     if (debug) {
-        printf("w: %d, h: %d, f: %04x\n", initinfo.w, initinfo.h, initinfo.f);
+        printf("pretty sure these are window dimensions - w: %d, h: %d, f: %04x\n", initinfo.w, initinfo.h, initinfo.f);
     }
-    video_buffer.render_w = initinfo.w;
-    video_buffer.render_h = initinfo.h;
-    video_buffer.pitch    = initinfo.w * 3;
+    video_buffer.window_w = initinfo.w;
+    video_buffer.window_h = initinfo.h;
 }
 
 void init_video_buffer(uint8_t* buffer, uint8_t version)
@@ -77,6 +76,9 @@ void init_video_buffer(uint8_t* buffer, uint8_t version)
         video_buffer.block_w   = vbuff2.w;
         video_buffer.block_h   = vbuff2.h;
         video_buffer.buff_size = buff_size; //what is this buff_size actually for?
+        video_buffer.render_w  = vbuff2.w*8;
+        video_buffer.render_h  = vbuff2.h*8;
+        video_buffer.pitch     = vbuff2.w * 8 * 3;
 
         break;}
     default:

@@ -47,6 +47,9 @@ struct video {
     timer_struct timer;
 
     int video_size = 0;
+    int window_w;
+    int window_h;
+
     int render_w;
     int render_h;
 
