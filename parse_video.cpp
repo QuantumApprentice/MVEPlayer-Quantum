@@ -1022,7 +1022,9 @@ int pattern_0x0A(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
     #pragma pack(pop)
     memcpy(&pattern, data_stream, sizeof(pattern));
 
-    uint8_t mask    = 0xC0;
+    //TODO: apparently this one also processes bits from low order to high
+    //      matching to pixels from left to right
+    uint8_t mask    = 0x03;// 0xC0;
     int mask_offset = 0;
     int B_index     = 0;
     if (data_stream[0] <= data_stream[1]) {
@@ -1061,19 +1063,22 @@ int pattern_0x0A(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
             {
                 for (int x = start.x; x < start.w; x++)
                 {
-                    uint8_t P_index = B[B_index] & (mask >> mask_offset);
+                    uint8_t P_index = B[B_index] & (mask << mask_offset);
                     switch (mask_offset)
                     {
                     case 0:
-                        P_index >>= 6;
+                        // P_index >>= 6;
                         break;
                     case 2:
-                        P_index >>= 4;
+                        P_index >>= 2;
+                        // P_index >>= 4;
                         break;
                     case 4:
-                        P_index >>= 2;
+                        P_index >>= 4;
+                        // P_index >>= 2;
                         break;
                     case 6:
+                        P_index >>= 6;
                         B_index++;
                         if (B_index >= 4) {
                             B_index = 0;
@@ -1128,19 +1133,23 @@ int pattern_0x0A(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
             {
                 for (int x = start.x; x < start.w; x++)
                 {
-                    uint8_t P_index = B[B_index] & (mask >> mask_offset);
+                    uint8_t P_index = B[B_index] & (mask << mask_offset);
+                    // uint8_t P_index = B[B_index] & (mask >> mask_offset);
                     switch (mask_offset)
                     {
                     case 0:
-                        P_index >>= 6;
+                        // P_index >>= 6;
                         break;
                     case 2:
-                        P_index >>= 4;
+                        P_index >>= 2;
+                        // P_index >>= 4;
                         break;
                     case 4:
-                        P_index >>= 2;
+                        P_index >>= 4;
+                        // P_index >>= 2;
                         break;
                     case 6:
+                        P_index >>= 6;
                         B_index++;
                         if (B_index >= 8) {
                             B_index = 0;
