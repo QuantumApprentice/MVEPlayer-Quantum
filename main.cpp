@@ -414,6 +414,10 @@ void video_player()
     if (ImGui::Button("re-render frame")) {
         rerender = true;
     }
+    ImGui::Text("window w: %d  h: %d", video_buffer.window_w, video_buffer.window_h);
+    ImGui::Text("render w: %d  h: %d", video_buffer.render_w, video_buffer.render_h);
+    ImGui::Text("block  w: %d  h: %d", video_buffer.block_w, video_buffer.block_h);
+
     if (rerender) {
         parse_chunk(chunk);
     }

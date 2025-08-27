@@ -619,6 +619,7 @@ int pattern_0x08(uint8_t* data_stream, uint8_t* dst_buff, bool blit, bool mark)
                 start.h = 8;
                 break;
             }
+
             for (int y = start.y; y < start.h; y++)
             {
                 for (int x = start.x; x < start.w; x++)
@@ -1011,7 +1012,7 @@ int pattern_0x0A(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
     int offset = 0;
 
     uint8_t* block_buff = video_buffer.block_buffer;
-    int buff_pitch      = video_buffer.block_pitch;
+    int block_pitch     = video_buffer.block_pitch;
     int frame_pitch     = video_buffer.pitch;
     palette* pal        = video_buffer.pal;
 
@@ -1031,21 +1032,46 @@ int pattern_0x0A(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
     #pragma pack(pop)
     memcpy(&pattern, data_stream, sizeof(pattern));
 
-    uint8_t mask = 0xC0;
+    uint8_t mask    = 0xC0;
     int mask_offset = 0;
-    int byte_index = 0;
+    int B_index     = 0;
     if (data_stream[0] <= data_stream[1]) {
+        //quads
         offset = 32;
-
         for (int q = 0; q < 4; q++)
         {
-            uint8_t* P = pattern.px32[q].P; //q==0 =>TL, 1=>BL
-            uint8_t* B = pattern.px32[q].B; //q==2 =>TR, 3=>BR
-            for (int y = 0; y < 4; y++)
+            uint8_t* P = pattern.px32[q].P;         //q==0 =>TL, 1=>BL
+            uint8_t* B = pattern.px32[q].B;         //q==2 =>TR, 3=>BR
+
+            Rect start = {
+                .x = 0,             // q==0 => x = 0
+                .y = 0,             //         y = 0
+                .w = 4,
+                .h = 4,
+            };
+            switch (q)
             {
-                for (int x = 0; x < 4; x++)
+            case 1:                 // bottom left
+                start.y = 4;        // q==1 => x = 0
+                start.h = 8;        //         y = 4
+                break;
+            case 2:                 // top right
+                start.x = 4;        // q==2 => x = 4
+                start.w = 8;        //         y = 0
+                break;
+            case 3:                 // bottom right
+                start.x = 4;        // q==3 => x = 4
+                start.y = 4;        //         y = 4
+                start.w = 8;
+                start.h = 8;
+                break;
+            }
+
+            for (int y = start.y; y < start.h; y++)
+            {
+                for (int x = start.x; x < start.w; x++)
                 {
-                    uint8_t P_index = B[byte_index] & mask >> mask_offset;
+                    uint8_t P_index = B[B_index] & (mask >> mask_offset);
                     switch (mask_offset)
                     {
                     case 0:
@@ -1058,35 +1084,16 @@ int pattern_0x0A(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
                         P_index >>= 2;
                         break;
                     case 6:
-                        byte_index++;
-                        if (byte_index >= 4) {
-                            byte_index = 0;
+                        B_index++;
+                        if (B_index >= 4) {
+                            B_index = 0;
                         }
                     }
                     palette color = pal[P[P_index]];
 
-                    int quad_offsety = 0;
-                    int quad_offsetx = 0;
-                    switch (q)
-                    {
-                    case 1:
-                        quad_offsety = 4;
-                        quad_offsetx = 0;
-                        break;
-                    case 2:
-                        quad_offsety = 0;
-                        quad_offsetx = 4;
-                        break;
-                    case 3:
-                        quad_offsety = 4;
-                        quad_offsetx = 4;
-                        break;
-                    }
-
-                    block_buff[(y + quad_offsety)*buff_pitch + (x + quad_offsetx)*3 + 0] = color.r;
-                    block_buff[(y + quad_offsety)*buff_pitch + (x + quad_offsetx)*3 + 1] = color.g;
-                    block_buff[(y + quad_offsety)*buff_pitch + (x + quad_offsetx)*3 + 2] = color.b;
-
+                    block_buff[y*block_pitch + x*3 + 0] = color.r;
+                    block_buff[y*block_pitch + x*3 + 1] = color.g;
+                    block_buff[y*block_pitch + x*3 + 2] = color.b;
 
                     mask_offset += 2;
                     if (mask_offset >= 8) {
@@ -1096,29 +1103,42 @@ int pattern_0x0A(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
             }
         }
     } else {
-    // if (data_stream[0] > data_stream[1]) {
+        //half & half
         offset = 24;
-        for (int half = 0; half < 2; half++)
+        for (int h = 0; h < 2; h++)
         {
-            uint8_t* P = pattern.px24[half].P;
-            uint8_t* B = pattern.px24[half].B;
-            int w;
-            int h;
+            uint8_t* P = pattern.px24[h].P;
+            uint8_t* B = pattern.px24[h].B;
+
+            Rect start = {
+                .x = 0,                 // h==0 => x = 0
+                .y = 0,                 //         y = 0
+                .w = 4,
+                .h = 4,
+            };
             if (pattern.px24[1].P[0] <= pattern.px24[1].P[1]) {
                 //left and right half
-                w = 4;
-                h = 8;
+                start.w = 4;
+                start.h = 8;
+                if (h == 1) {           // right half
+                    start.x = 4;        // h==1 => x = 4
+                    start.w = 8;        //         y = 0
+                }
             } else {
                 //top and bottom half
-                w = 8;
-                h = 4;
+                start.w = 8;
+                start.h = 4;
+                if (h == 1) {           // bottom half
+                    start.y = 4;        // h==1 => x = 0
+                    start.h = 8;        //         y = 4
+                }
             }
 
-            for (int y = 0; y < h; y++)
+            for (int y = start.y; y < start.h; y++)
             {
-                for (int x = 0; x < w; x++)
+                for (int x = start.x; x < start.w; x++)
                 {
-                    uint8_t P_index = B[byte_index] & (mask >> mask_offset);
+                    uint8_t P_index = B[B_index] & (mask >> mask_offset);
                     switch (mask_offset)
                     {
                     case 0:
@@ -1131,31 +1151,20 @@ int pattern_0x0A(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
                         P_index >>= 2;
                         break;
                     case 6:
-                        byte_index++;
-                        if (byte_index >= 8) {
-                            byte_index = 0;
+                        B_index++;
+                        if (B_index >= 8) {
+                            B_index = 0;
                         }
                     }
                     palette color = pal[P[P_index]];
 
-                    int half_offsety = 0;
-                    int half_offsetx = 0;
-                    if (half == 1) {
-                        if (w == 4) {
-                            half_offsetx = 4;
-                        } else {
-                            half_offsety = 4;
-                        }
-                        break;
-                    }
-
-                    block_buff[(y + half_offsety)*buff_pitch + (x + half_offsetx)*3 + 0] = color.r;
-                    block_buff[(y + half_offsety)*buff_pitch + (x + half_offsetx)*3 + 1] = color.g;
-                    block_buff[(y + half_offsety)*buff_pitch + (x + half_offsetx)*3 + 2] = color.b;
+                    block_buff[y*block_pitch + x*3 + 0] = color.r;
+                    block_buff[y*block_pitch + x*3 + 1] = color.g;
+                    block_buff[y*block_pitch + x*3 + 2] = color.b;
 
                     mask_offset += 2;
                     if (mask_offset >= 8) {
-                        mask_offset =  0;
+                        mask_offset  = 0;
                     }
                 }
             }
@@ -1169,10 +1178,10 @@ int pattern_0x0A(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
         .h = 8,
     };
     if (mark) {
-        PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
+        PaintSurface(block_buff, block_pitch, buff_rect, {255, 255, 255});
     }
     if (blit) {
-        BlitSurface(block_buff, buff_rect, buff_pitch, dst_buff, buff_rect, frame_pitch);
+        BlitSurface(block_buff, buff_rect, block_pitch, dst_buff, buff_rect, frame_pitch);
     }
 
     return offset;
@@ -1487,7 +1496,6 @@ void parse_video_data(uint8_t* buffer)
     int y_offset    = 0;
     uint8_t mask    = video_buffer.encode_bits;
     int data_offset = video_buffer.data_offset_init;
-    // int data_offset = 14;
     int frame_pitch = video_buffer.pitch;
     for (int i = 0; i < video_buffer.map_size*2; i++)
     {
