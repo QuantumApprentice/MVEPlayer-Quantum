@@ -456,7 +456,7 @@ int pattern_0x07(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
     int offset = 0;
 
     uint8_t* block_buff = video_buffer.block_buffer;
-    int buff_pitch      = video_buffer.block_pitch;
+    int block_pitch     = video_buffer.block_pitch;
     int frame_pitch     = video_buffer.pitch;
     palette* pal        = video_buffer.pal;
 
@@ -470,25 +470,19 @@ int pattern_0x07(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
 
     if (P[0] <= P[1]) {
         offset = 10;
-        for (int i = 0; i < 8; i++)
-        {
-            B[i] = data_stream[i+2];
-        }
+        memcpy(B, &data_stream[2], sizeof(B));
 
-        uint8_t mask = 128;
+        //TODO: the docs say high order bit is left,
+        //      but it only seems to work the other way
+        uint8_t mask = 1;
         for (int y = 0; y < 8; y++)
         {
             for (int x = 0; x < 8; x++)
             {
-                bool pal_index = B[y] & (mask >> x);
+                bool P_index = B[y] & (mask << x);
+                palette color = pal[P[P_index]];
 
-                int pos = y*buff_pitch + x*3;
-                palette color = pal[P[pal_index]];
-
-                // color.r = 255;
-                // color.g = 255;
-                // color.b = 255;
-
+                int pos = y*block_pitch + x*3;
                 block_buff[pos + 0] = color.r;
                 block_buff[pos + 1] = color.g;
                 block_buff[pos + 2] = color.b;
@@ -511,7 +505,7 @@ int pattern_0x07(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
         // 11 11 11 11 11 11 22 22 ;
 
         int byte_index = 0;
-        uint8_t mask = 0x80;
+        uint8_t mask = 128;
         uint8_t mask_offset = 0;
         for (int y = 0; y < 8; y+=2)
         {
@@ -533,26 +527,22 @@ int pattern_0x07(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
                     .h = 2,
                 };
 
-                // color.r = 255;
-                // color.g = 255;
-                // color.b = 255;
-
-                PaintSurface(block_buff, buff_pitch, buff_rect, color);
+                PaintSurface(block_buff, block_pitch, buff_rect, color);
             }
         }
     }
 
-    Rect buff_rect = {
+    Rect block_rect = {
         .x = 0,
         .y = 0,
         .w = 8,
         .h = 8,
     };
     if (mark) {
-        PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
+        PaintSurface(block_buff, block_pitch, block_rect, {255, 255, 255});
     }
     if (blit) {
-        BlitSurface(block_buff, buff_rect, buff_pitch, dst_buff, buff_rect, frame_pitch);
+        BlitSurface(block_buff, block_rect, block_pitch, dst_buff, block_rect, frame_pitch);
     }
 
     return offset;
