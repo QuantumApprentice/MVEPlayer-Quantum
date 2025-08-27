@@ -44,7 +44,7 @@ int main()
 
     // test_pattern_0x08();
 
-    // test_pattern_0x09();
+    test_pattern_0x09();
 
     // test_pattern_0x0A();
 
@@ -650,26 +650,64 @@ void test_pattern_0x09()
     video_buffer.pal[10] = {1,1,1};
     video_buffer.pal[20] = {2,2,2};
     video_buffer.pal[30] = {3,3,3};
-    video_buffer.pal[40] = {9,9,9};
-    uint8_t data_stream_pat0[16] = {
-        30, 40, 20, 10, 0x82, 0x82, 0x82, 0x82,     // Top Left
-        30, 40, 20, 10, 0xff, 0xc3, 0xc3, 0xc3,     // Bottom Left
-        // 30, 40, 20, 10, 0x41, 0x41, 0x41, 0x55,     // Top Right
-        // 30, 40, 20, 10, 0x00, 0x14, 0x14, 0x14,     // Bottom Right
+    video_buffer.pal[40] = {4,4,4};
+    uint8_t data_stream_pat0[20] = {        //4+16 bytes    1x1 pxl
+        30, 40, 10, 20,         //palette indexes
+        0xAA, 0xAA,
+        0x83, 0x42,             //patterns
+        0x81, 0xC2,
+        0x83, 0x42,             //patterns
+        0x81, 0xC2,
+        0x83, 0x42,             //patterns
+        0x81, 0xC2,
+        0xAA, 0xAA,             //patterns
     };
-    // int offset = pattern_0x09(data_stream_quad, NULL, &test_buff[8*TEST_BUFF_PITCH + 8*3], true, false);
+    // int offset = pattern_0x09(data_stream_pat0, NULL, &test_buff[8*TEST_BUFF_PITCH + 8*3], true, false);
 
-    uint8_t data_stream_pat1[24] = {
-        40, 30, 20, 10, 0xAA, 0x96, 0x96, 0x96, 0x82, 0x82, 0x82, 0xAA,      // Left side
-        30, 40, 20, 10, 0xff, 0xc3, 0xc3, 0xc3, 0xd7, 0xd7, 0xd7, 0xFF,      // Right side
+    uint8_t data_stream_pat1[20] = {        //4+4 bytes     2x2 pxl
+        30, 40, 20, 10,         //palette indexes
+        0xAA,
+        0x92,
+        0x86,
+        0xAA,             //patterns
+        // 0x81, 0xC2,
+        // 0x83, 0x42,             //patterns
+        // 0x81, 0xC2,
+        // 0x83, 0x42,             //patterns
+        // 0x81, 0xC2,
+        // 0xAA, 0xAA,             //patterns
     };
-    // int offset = pattern_0x09(data_stream_LRhalf, NULL, &test_buff[8*TEST_BUFF_PITCH + 8*3], true, false);
+    // int offset = pattern_0x09(data_stream_pat1, NULL, &test_buff[8*TEST_BUFF_PITCH + 8*3], true, false);
 
-    uint8_t data_stream_pat2[24] = {
-        40, 30, 20, 10, 0xAA, 0xAA, 0x97, 0xD6, 0x97, 0xD6, 0xAA, 0xAA,      // Top half
-        40, 30, 20, 10, 0x00, 0x00, 0x3D, 0x7C, 0x3D, 0x7C, 0x00, 0x00,      // Bottom half
+    uint8_t data_stream_pat2[20] = {        //4+8 bytes     2x1 pxl
+        40, 30, 10, 20,         //palette indexes
+        0xFF,
+        0xC3,
+        0xC7,
+        0xD3,             //patterns
+        0xE3,
+        0xCB,
+        0xEB,
+        0xFF,             //patterns
+        // 0x81, 0xC2,
+        // 0x83, 0x42,             //patterns
+        // 0x81, 0xC2,
+        // 0xAA, 0xAA,             //patterns
     };
-    // int offset = pattern_0x09(data_stream_TBhalf, NULL, &test_buff[8*TEST_BUFF_PITCH + 8*3], true, false);
+    // int offset = pattern_0x09(data_stream_pat2, NULL, &test_buff[8*TEST_BUFF_PITCH + 8*3], true, false);
+
+    uint8_t data_stream_pat3[20] = {        //4+8 bytes     1x2 pxl
+        40, 30, 20, 10,         //palette indexes
+        0xFF, 0xFF,
+        0xC6, 0xE7,             //patterns
+        0xDB, 0x93,
+        0xFF, 0xFF,             //patterns
+        // 0x81, 0xC2,
+        // 0x83, 0x42,             //patterns
+        // 0x81, 0xC2,
+        // 0xAA, 0xAA,             //patterns
+    };
+    int offset = pattern_0x09(data_stream_pat3, NULL, &test_buff[8*TEST_BUFF_PITCH + 8*3], true, false);
 
     printf("pattern_0x09() after\n");
     print_buff(test_buff, 16,16, TEST_BUFF_PITCH, PXL_DEPTH);

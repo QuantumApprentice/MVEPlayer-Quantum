@@ -799,7 +799,7 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
     int offset = 0;
 
     uint8_t* block_buff = video_buffer.block_buffer;
-    int buff_pitch      = video_buffer.block_pitch;
+    int block_pitch     = video_buffer.block_pitch;
     int frame_pitch     = video_buffer.pitch;
     palette* pal        = video_buffer.pal;
 
@@ -813,7 +813,11 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
 
     uint8_t* P = pattern.P;
     uint8_t* B = pattern.B;
-    uint8_t mask = 0xC0;
+    //TODO: and here we go again,
+    //      apparently the bits are read from low to high
+    //      while matching pixels from left to right
+    // uint8_t mask = 0xC0;
+    uint8_t mask = 0x03;
     int mask_offset = 0;
     int byte_index = 0;
 
@@ -823,20 +827,27 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
         {
             for (int x = 0; x < 8; x++)
             {
-                uint8_t pal_index = B[byte_index] & mask >> mask_offset;
+                //TODO: and again,
+                //      apparently the bits are read from low to high
+                //      while matching pixels from left to right
+                // uint8_t pal_index = B[byte_index] & mask >> mask_offset;
+                uint8_t pal_index = B[byte_index] & mask << mask_offset;
 
                 switch (mask_offset)
                 {
                 case 0:
-                    pal_index >>= 6;
+                    // pal_index >>= 6;
                     break;
                 case 2:
-                    pal_index >>= 4;
+                    pal_index >>= 2;
+                    // pal_index >>= 4;
                     break;
                 case 4:
-                    pal_index >>= 2;
+                    pal_index >>= 4;
+                    // pal_index >>= 2;
                     break;
                 case 6:
+                    pal_index >>= 6;
                     byte_index++;
                     if (byte_index >= 16) {
                         byte_index = 0;
@@ -844,9 +855,9 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
                 }
                 palette color = pal[P[pal_index]];
 
-                block_buff[y*buff_pitch + x*3 + 0] = color.r;
-                block_buff[y*buff_pitch + x*3 + 1] = color.g;
-                block_buff[y*buff_pitch + x*3 + 2] = color.b;
+                block_buff[y*block_pitch + x*3 + 0] = color.r;
+                block_buff[y*block_pitch + x*3 + 1] = color.g;
+                block_buff[y*block_pitch + x*3 + 2] = color.b;
 
                 mask_offset += 2;
                 if (mask_offset >= 8) {
@@ -861,20 +872,27 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
         {
             for (int x = 0; x < 8; x+=2)
             {
-                uint8_t pal_index = B[byte_index] & mask >> mask_offset;
+                //TODO: and again,
+                //      apparently the bits are read from low to high
+                //      while matching pixels from left to right
+                // uint8_t pal_index = B[byte_index] & mask >> mask_offset;
+                uint8_t pal_index = B[byte_index] & mask << mask_offset;
 
                 switch (mask_offset)
                 {
                 case 0:
-                    pal_index >>= 6;
+                    // pal_index >>= 6;
                     break;
                 case 2:
-                    pal_index >>= 4;
+                    pal_index >>= 2;
+                    // pal_index >>= 4;
                     break;
                 case 4:
-                    pal_index >>= 2;
+                    pal_index >>= 4;
+                    // pal_index >>= 2;
                     break;
                 case 6:
+                    pal_index >>= 6;
                     byte_index++;
                     if (byte_index >= 16) {
                         byte_index = 0;
@@ -888,7 +906,7 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
                     .w = 2,
                     .h = 2,
                 };
-                PaintSurface(block_buff, buff_pitch, buff_rect, color);
+                PaintSurface(block_buff, block_pitch, buff_rect, color);
 
                 mask_offset += 2;
                 if (mask_offset >= 8) {
@@ -903,20 +921,27 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
         {
             for (int x = 0; x < 8; x+=2)
             {
+                //TODO: and again,
+                //      apparently the bits are read from low to high
+                //      while matching pixels from left to right
+                // uint8_t pal_index = B[byte_index] & mask >> mask_offset;
                 uint8_t pal_index = B[byte_index] & mask >> mask_offset;
 
                 switch (mask_offset)
                 {
                 case 0:
-                    pal_index >>= 6;
+                    // pal_index >>= 6;
                     break;
                 case 2:
-                    pal_index >>= 4;
+                    pal_index >>= 2;
+                    // pal_index >>= 4;
                     break;
                 case 4:
-                    pal_index >>= 2;
+                    pal_index >>= 4;
+                    // pal_index >>= 2;
                     break;
                 case 6:
+                    pal_index >>= 6;
                     byte_index++;
                     if (byte_index >= 16) {
                         byte_index = 0;
@@ -930,7 +955,7 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
                     .w = 2,
                     .h = 1,
                 };
-                PaintSurface(block_buff, buff_pitch, buff_rect, color);
+                PaintSurface(block_buff, block_pitch, buff_rect, color);
 
                 mask_offset += 2;
                 if (mask_offset >= 8) {
@@ -945,20 +970,27 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
         {
             for (int x = 0; x < 8; x++)
             {
-                uint8_t pal_index = B[byte_index] & mask >> mask_offset;
+                //TODO: and again,
+                //      apparently the bits are read from low to high
+                //      while matching pixels from left to right
+                // uint8_t pal_index = B[byte_index] & mask >> mask_offset;
+                uint8_t pal_index = B[byte_index] & mask << mask_offset;
 
                 switch (mask_offset)
                 {
                 case 0:
-                    pal_index >>= 6;
+                    // pal_index >>= 6;
                     break;
                 case 2:
-                    pal_index >>= 4;
+                    pal_index >>= 2;
+                    // pal_index >>= 4;
                     break;
                 case 4:
-                    pal_index >>= 2;
+                    pal_index >>= 4;
+                    // pal_index >>= 2;
                     break;
                 case 6:
+                    pal_index >>= 6;
                     byte_index++;
                     if (byte_index >= 16) {
                         byte_index = 0;
@@ -972,7 +1004,7 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
                     .w = 1,
                     .h = 2,
                 };
-                PaintSurface(block_buff, buff_pitch, buff_rect, color);
+                PaintSurface(block_buff, block_pitch, buff_rect, color);
 
                 mask_offset += 2;
                 if (mask_offset >= 8) {
@@ -989,10 +1021,10 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
         .h = 8,
     };
     if (mark) {
-        PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
+        PaintSurface(block_buff, block_pitch, buff_rect, {255, 255, 255});
     }
     if (blit) {
-        BlitSurface(block_buff, buff_rect, buff_pitch, dst_buff, buff_rect, frame_pitch);
+        BlitSurface(block_buff, buff_rect, block_pitch, dst_buff, buff_rect, frame_pitch);
     }
     return offset;
 }
@@ -1063,6 +1095,9 @@ int pattern_0x0A(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
             {
                 for (int x = start.x; x < start.w; x++)
                 {
+                //TODO: and again,
+                //      apparently the bits are read from low to high
+                //      while matching pixels from left to right
                     uint8_t P_index = B[B_index] & (mask << mask_offset);
                     switch (mask_offset)
                     {
