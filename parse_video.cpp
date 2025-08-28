@@ -1368,47 +1368,61 @@ int solid_frame_0x0E(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buf
     return 1;
 }
 
-int dithered_0x0F(uint8_t* data_stream, video*video_buffer, uint8_t* dst_buff, bool blit, bool mark)
+int dithered_0x0F(uint8_t* data_stream, video*video, uint8_t* dst_buff, bool blit, bool mark)
 {
-    uint8_t* block_buff = video_buffer->block_buffer;
-    int buff_pitch      = video_buffer->block_pitch;
-    int frame_pitch     = video_buffer->pitch;
+    uint8_t* block_buff = video_buffer.block_buffer;
+    int block_pitch     = video_buffer.block_pitch;
+    int frame_pitch     = video_buffer.pitch;
 
     uint8_t P[2] = {
         data_stream[0],
         data_stream[1]
     };
 
-    palette* pal = video_buffer->pal;
+    palette* pal   = video_buffer.pal;
     palette color1 = pal[P[0]];
     palette color2 = pal[P[1]];
 
-    for (int i = 0; i < 64; i+=6)
+    bool hash = true;
+    for (int y = 0; y < 8; y++)
     {
-        // buffer[i*3] = color1.color;
-        block_buff[i +0] = color1.r;
-        block_buff[i +1] = color1.g;
-        block_buff[i +2] = color1.b;
-    }
-    for (int i = 3; i < 64; i+=6)
-    {
-        // buffer[i*3] = color2.color;
-        block_buff[i +0] = color2.r;
-        block_buff[i +1] = color2.g;
-        block_buff[i +2] = color2.b;
+        for (int x = 0; x < 8; x++)
+        {
+            palette cur = hash ? color1 : color2;
+            block_buff[y*block_pitch + x*3 +0] = cur.r;
+            block_buff[y*block_pitch + x*3 +1] = cur.g;
+            block_buff[y*block_pitch + x*3 +2] = cur.b;
+            hash = !hash;
+        }
+        hash = !hash;
     }
 
-    Rect buff_rect = {
+    // for (int i = 0; i < 64; i+=6)
+    // {
+    //     // buffer[i*3] = color1.color;
+    //     block_buff[i +0] = color1.r;
+    //     block_buff[i +1] = color1.g;
+    //     block_buff[i +2] = color1.b;
+    // }
+    // for (int i = 3; i < 64; i+=6)
+    // {
+    //     // buffer[i*3] = color2.color;
+    //     block_buff[i +0] = color2.r;
+    //     block_buff[i +1] = color2.g;
+    //     block_buff[i +2] = color2.b;
+    // }
+
+    Rect block_rect = {
         .x = 0,
         .y = 0,
         .w = 8,
         .h = 8,
     };
     if (mark) {
-        PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
+        PaintSurface(block_buff, block_pitch, block_rect, {255, 255, 255});
     }
     if (blit) {
-        BlitSurface(block_buff, buff_rect, buff_pitch, dst_buff, buff_rect, frame_pitch);
+        BlitSurface(block_buff, block_rect, block_pitch, dst_buff, block_rect, frame_pitch);
     }
 
     return 2;

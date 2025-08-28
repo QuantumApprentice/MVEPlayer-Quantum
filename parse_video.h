@@ -56,7 +56,7 @@ struct video {
     int block_w;
     int block_h;
 
-    int encode_type[0xf];
+    int encode_type[0xf+1];
     int frame_count = 0;
     bool blit_marker[16];
     bool allow_blit[16] = {
@@ -109,3 +109,5 @@ int pattern_0x0A(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
 int raw_pixels_0x0B(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff, bool blit, bool mark);
 int raw_pixels_0x0C(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff, bool blit, bool mark);
 int raw_pixels_0x0D(uint8_t* data_stream, video*video_buffer, uint8_t* dst_buff, bool blit, bool mark);
+int solid_frame_0x0E(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff, bool blit, bool mark);
+int dithered_0x0F(uint8_t* data_stream, video*video_buffer, uint8_t* dst_buff, bool blit, bool mark);
