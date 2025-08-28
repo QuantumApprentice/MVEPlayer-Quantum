@@ -420,6 +420,32 @@ void video_player()
     ImGui::Text("block  w: %d  h: %d", video_buffer.block_w, video_buffer.block_h);
     ImGui::Text("frame: %d", video_buffer.frame_count);
 
+
+    ImGuiIO& io = ImGui::GetIO();
+    float mouse_x, mouse_y;
+    if (io.MousePos.x > (pos.x + 400) && io.MousePos.x < (pos.x + 400 + video_buffer.render_w*scale)
+    && (io.MousePos.y > pos.y && io.MousePos.y < (pos.y + video_buffer.render_h*scale))) {
+        mouse_x = io.MousePos.x - pos.x - 400;
+        mouse_y = io.MousePos.y - pos.y;
+    } else {
+        mouse_x = -1;
+        mouse_y = -1;
+    }
+
+    if (mouse_x >= 0 && mouse_y >= 0 && video_buffer.map_stream) {
+        int block_num = (int)(mouse_y/(8*scale))*video_buffer.block_w + mouse_x/8/scale;
+        // int block_enc = (video_buffer.map_stream[block_num] >> 4*(block_num%2)) & 0x0F;
+        int block_enc = video_buffer.map_stream[block_num];
+
+        ImGui::Text("Mouse x: %g y: %g", mouse_x, mouse_y);
+        ImGui::Text("Block #%d", block_num);
+        // ImGui::Text("which encode? %d", block_num%2);
+        ImGui::Text("Encode type: %02x", block_enc);
+    } else {
+        ImGui::Text("Mouse Out of Bounds");
+    }
+
+
     if (rerender) {
         parse_chunk(chunk);
     }
@@ -446,7 +472,7 @@ void video_player()
     }
     if (pause && chunk.info.type == CHUNK_video) {
         if (ImGui::Button("Frame Step")) {
-            // do nothing?
+            // bypass the return for one click (should be one frame)
         } else {
             return;
         }

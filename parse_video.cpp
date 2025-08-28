@@ -9,7 +9,6 @@
 #include <memory.h>
 
 bool debug = false;
-// extern video video_buffer;
 
 #pragma pack(push, 1)
 struct videoinit_info
@@ -1526,7 +1525,6 @@ void parse_video_data(uint8_t* buffer)
     uint8_t* next_frame  = video_buffer.pxls;
     uint8_t* map_stream  = video_buffer.map_stream;
 
-    // debug = true;
     int encode_type_previous_frame[0xf];
     int encode_type_per_frame[0xf];
     if (debug) {
@@ -1573,5 +1571,4 @@ void parse_video_data(uint8_t* buffer)
             encode_type_per_frame[i] = video_buffer.encode_type[i] - encode_type_previous_frame[i];
         }
     }
-    // debug = false;
 }
