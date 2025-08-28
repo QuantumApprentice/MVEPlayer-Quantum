@@ -619,7 +619,11 @@ int pattern_0x08(uint8_t* data_stream, uint8_t* dst_buff, bool blit, bool mark)
             {
                 for (int x = start.x; x < start.w; x++)
                 {
-                    uint8_t mask = 128 >> mask_offset++;
+                    //TODO: and again,
+                    //      apparently the bits are read from low to high
+                    //      while matching pixels from left to right
+                    // uint8_t mask = 128 >> mask_offset++;
+                    uint8_t mask = 1 << mask_offset++;
                     if (mask_offset >= 8) {
                         mask_offset = 0;
                     }
@@ -674,7 +678,11 @@ int pattern_0x08(uint8_t* data_stream, uint8_t* dst_buff, bool blit, bool mark)
                 {
                     for (int x = start.x; x < start.w; x++)
                     {
-                        uint8_t mask = 128 >> mask_offset++;
+                        //TODO: and again,
+                        //      apparently the bits are read from low to high
+                        //      while matching pixels from left to right
+                        // uint8_t mask = 128 >> mask_offset++;
+                        uint8_t mask = 1 << mask_offset++;
                         if (mask_offset >= 8) {
                             mask_offset = 0;
                         }
@@ -734,7 +742,11 @@ int pattern_0x08(uint8_t* data_stream, uint8_t* dst_buff, bool blit, bool mark)
                 {
                     for (int x = 0; x < 8; x++)
                     {
-                        uint8_t mask = 128 >> mask_offset++;
+                        //TODO: and again,
+                        //      apparently the bits are read from low to high
+                        //      while matching pixels from left to right
+                        // uint8_t mask = 128 >> mask_offset++;
+                        uint8_t mask = 1 << mask_offset++;
                         if (mask_offset >= 8) {
                             mask_offset = 0;
                         }
@@ -742,26 +754,18 @@ int pattern_0x08(uint8_t* data_stream, uint8_t* dst_buff, bool blit, bool mark)
                         switch (y)
                         {
                         case 0:
-                            which = block.half[h].B0 & mask;
-                            break;
-                        case 1:
-                            which = block.half[h].B1 & mask;
-                            break;
-                        case 2:
-                            which = block.half[h].B2 & mask;
-                            break;
-                        case 3:
-                            which = block.half[h].B3 & mask;
-                            break;
                         case 4:
                             which = block.half[h].B0 & mask;
                             break;
+                        case 1:
                         case 5:
                             which = block.half[h].B1 & mask;
                             break;
+                        case 2:
                         case 6:
                             which = block.half[h].B2 & mask;
                             break;
+                        case 3:
                         case 7:
                             which = block.half[h].B3 & mask;
                             break;

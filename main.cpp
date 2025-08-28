@@ -417,8 +417,8 @@ void video_player()
 
     ImGui::Text("window w: %d  h: %d", video_buffer.window_w, video_buffer.window_h);
     ImGui::Text("render w: %d  h: %d", video_buffer.render_w, video_buffer.render_h);
-    ImGui::Text("block  w: %d  h: %d", video_buffer.block_w, video_buffer.block_h);
-    ImGui::Text("frame: %d", video_buffer.frame_count);
+    ImGui::Text("block  w: %d  h: %d", video_buffer.block_w,  video_buffer.block_h);
+    ImGui::Text("frame: %d",           video_buffer.frame_count);
 
 
     ImGuiIO& io = ImGui::GetIO();
@@ -435,7 +435,7 @@ void video_player()
     if (mouse_x >= 0 && mouse_y >= 0 && video_buffer.map_stream) {
         int block_num = (int)(mouse_y/(8*scale))*video_buffer.block_w + mouse_x/8/scale;
         // int block_enc = (video_buffer.map_stream[block_num] >> 4*(block_num%2)) & 0x0F;
-        int block_enc = video_buffer.map_stream[block_num];
+        int block_enc = video_buffer.map_stream[block_num/2];
 
         ImGui::Text("Mouse x: %g y: %g", mouse_x, mouse_y);
         ImGui::Text("Block #%d", block_num);
