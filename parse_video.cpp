@@ -354,21 +354,24 @@ int cornerCopy_0x03(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* d
 int symmetricCopy_0x04(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* dst_buff, bool blit, bool mark)
 {
     uint8_t* block_buff = video_buffer.block_buffer;
-    int buff_pitch      = video_buffer.block_pitch;
+    int block_pitch     = video_buffer.block_pitch;
     int frame_pitch     = video_buffer.pitch;
 
-#pragma pack(push,1)
-    struct byte {
-        uint8_t BL : 4;
-        uint8_t BH : 4;
-    } B;
-#pragma pack(pop)
+// #pragma pack(push,1)
+//     struct byte {
+//         uint8_t BL : 4;     //bitfield - only read the number of bits indicated?
+//         uint8_t BH : 4;     //
+//     } B;
+// #pragma pack(pop)
+    uint8_t B;
     memcpy(&B, data_stream, sizeof(B));
 
     // offset from current position
     Rect src_rect = {
-        .x = -8 + B.BL,
-        .y = -8 + B.BH,
+        // .x = -8 + B.BL,
+        // .y = -8 + B.BH,
+        .x = -8 + (B & 0xF),
+        .y = -8 + (B >> 4),
         .w = 8,
         .h = 8
     };
@@ -385,18 +388,19 @@ int symmetricCopy_0x04(uint8_t* data_stream, int x_offset, int y_offset, uint8_t
     } else {
         current = video_buffer.frnt_buffer;
     }
-    Rect buff_rect = {
+
+    Rect block_rect = {
         .x = 0,
         .y = 0,
         .w = 8,
         .h = 8,
     };
-    BlitSurface(current, src_rect, frame_pitch, block_buff, buff_rect, buff_pitch);
+    BlitSurface(current, src_rect, frame_pitch, block_buff, block_rect, block_pitch);
     if (mark) {
-        PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
+        PaintSurface(block_buff, block_pitch, block_rect, {255, 255, 255});
     }
     if (blit) {
-        BlitSurface(block_buff, buff_rect, buff_pitch, dst_buff, buff_rect, frame_pitch);
+        BlitSurface(block_buff, block_rect, block_pitch, dst_buff, block_rect, frame_pitch);
     }
 
     return 1;
@@ -505,7 +509,8 @@ int pattern_0x07(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
         // 11 11 11 11 11 11 22 22 ;
 
         int byte_index = 0;
-        uint8_t mask = 128;
+        // uint8_t mask = 128;
+        uint8_t mask = 1;
         uint8_t mask_offset = 0;
         for (int y = 0; y < 8; y+=2)
         {
@@ -514,7 +519,8 @@ int pattern_0x07(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
             }
             for (int x = 0; x < 8; x+=2)
             {
-                bool pal_index = B[byte_index] & (mask >> mask_offset++);
+                // bool pal_index = B[byte_index] & (mask >> mask_offset++);
+                bool pal_index = B[byte_index] & (mask << mask_offset++);
                 if (mask_offset >= 8) {
                     mask_offset = 0;
                 }
@@ -925,7 +931,7 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
                 //      apparently the bits are read from low to high
                 //      while matching pixels from left to right
                 // uint8_t pal_index = B[byte_index] & mask >> mask_offset;
-                uint8_t pal_index = B[byte_index] & mask >> mask_offset;
+                uint8_t pal_index = B[byte_index] & mask << mask_offset;
 
                 switch (mask_offset)
                 {
@@ -1300,7 +1306,7 @@ int raw_pixels_0x0C(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff
 int raw_pixels_0x0D(uint8_t* data_stream, video*video_buffer, uint8_t* dst_buff, bool blit, bool mark)
 {
     uint8_t* block_buff = video_buffer->block_buffer;
-    int buff_pitch      = video_buffer->block_pitch;
+    int block_pitch     = video_buffer->block_pitch;
     int frame_pitch     = video_buffer->pitch;
 
     uint8_t P[4];
@@ -1319,7 +1325,7 @@ int raw_pixels_0x0D(uint8_t* data_stream, video*video_buffer, uint8_t* dst_buff,
                 .w = 4,
                 .h = 4,
             };
-            PaintSurface(block_buff, buff_pitch, dst_rect, color);
+            PaintSurface(block_buff, block_pitch, dst_rect, color);
         }
     }
     Rect buff_rect = {
@@ -1329,10 +1335,10 @@ int raw_pixels_0x0D(uint8_t* data_stream, video*video_buffer, uint8_t* dst_buff,
         .h = 8,
     };
     if (mark) {
-        PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
+        PaintSurface(block_buff, block_pitch, buff_rect, {255, 255, 255});
     }
     if (blit) {
-        BlitSurface(block_buff, buff_rect, buff_pitch, dst_buff, buff_rect, frame_pitch);
+        BlitSurface(block_buff, buff_rect, block_pitch, dst_buff, buff_rect, frame_pitch);
     }
 
     return 4;
@@ -1342,7 +1348,7 @@ int raw_pixels_0x0D(uint8_t* data_stream, video*video_buffer, uint8_t* dst_buff,
 int solid_frame_0x0E(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff, bool blit, bool mark)
 {
     uint8_t* block_buff = video_buffer->block_buffer;
-    int buff_pitch      = video_buffer->block_pitch;
+    int block_pitch     = video_buffer->block_pitch;
     int frame_pitch     = video_buffer->pitch;
 
     uint8_t pal_index = data_stream[0];
@@ -1357,12 +1363,12 @@ int solid_frame_0x0E(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buf
     // printf("pal_index: %d  RGB %d%d%d\n", pal_index, color.r, color.g, color.b);
 
     //TODO: paint a buffer first, then blit
-    PaintSurface(block_buff, buff_pitch, buff_rect, color);
+    PaintSurface(block_buff, block_pitch, buff_rect, color);
     if (mark) {
-        PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
+        PaintSurface(block_buff, block_pitch, buff_rect, {255, 255, 255});
     }
     if (blit) {
-        BlitSurface(block_buff, buff_rect, buff_pitch, dst_buff, buff_rect, frame_pitch);
+        BlitSurface(block_buff, buff_rect, block_pitch, dst_buff, buff_rect, frame_pitch);
     }
 
     return 1;
@@ -1397,21 +1403,6 @@ int dithered_0x0F(uint8_t* data_stream, video*video, uint8_t* dst_buff, bool bli
         hash = !hash;
     }
 
-    // for (int i = 0; i < 64; i+=6)
-    // {
-    //     // buffer[i*3] = color1.color;
-    //     block_buff[i +0] = color1.r;
-    //     block_buff[i +1] = color1.g;
-    //     block_buff[i +2] = color1.b;
-    // }
-    // for (int i = 3; i < 64; i+=6)
-    // {
-    //     // buffer[i*3] = color2.color;
-    //     block_buff[i +0] = color2.r;
-    //     block_buff[i +1] = color2.g;
-    //     block_buff[i +2] = color2.b;
-    // }
-
     Rect block_rect = {
         .x = 0,
         .y = 0,
@@ -1438,6 +1429,14 @@ int parse_video_encode(uint8_t op, uint8_t* data_stream, uint8_t* frame_buffer, 
     bool* allow_blit = video_buffer.allow_blit;
     bool* blit_mark  = video_buffer.blit_marker;
     int* data_offset = video_buffer.data_offset;
+
+    if (debug) {
+        if (y_offset >= 16 && y_offset < 32) {
+            if (x_offset >= 8 && x_offset < 16) {
+                printf("this opdcode %0x\n", op);
+            }
+        }
+    }
 
     int offset = 0;
     switch (op)

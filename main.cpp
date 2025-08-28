@@ -414,9 +414,11 @@ void video_player()
     if (ImGui::Button("re-render frame")) {
         rerender = true;
     }
+
     ImGui::Text("window w: %d  h: %d", video_buffer.window_w, video_buffer.window_h);
     ImGui::Text("render w: %d  h: %d", video_buffer.render_w, video_buffer.render_h);
     ImGui::Text("block  w: %d  h: %d", video_buffer.block_w, video_buffer.block_h);
+    ImGui::Text("frame: %d", video_buffer.frame_count);
 
     if (rerender) {
         parse_chunk(chunk);
@@ -443,7 +445,11 @@ void video_player()
         //     ImGui::GetColorU32(My_Variables->tint_col));
     }
     if (pause && chunk.info.type == CHUNK_video) {
-        return;
+        if (ImGui::Button("Frame Step")) {
+            // do nothing?
+        } else {
+            return;
+        }
     }
 
     if (success) {
