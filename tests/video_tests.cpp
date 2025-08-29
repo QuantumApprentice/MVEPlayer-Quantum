@@ -31,25 +31,25 @@ int main()
     video_buffer.pitch = video_buffer.block_pitch;
     video_buffer.pxls  = video_buffer.frnt_buffer;
 
-    test_blockCopy_0x00(out_buffer);
+    // test_blockCopy_0x00(out_buffer);
 
-    test_cornerCopy_0x02(out_buffer);
+    // test_cornerCopy_0x02(out_buffer);
 
-    test_cornerCopy_0x03(out_buffer);
+    // test_cornerCopy_0x03(out_buffer);
 
-    test_symmetricCopy_0x04(out_buffer);
+    // test_symmetricCopy_0x04(out_buffer);
 
     // test_symmetricCopy_0x05();
 
-    // test_pattern_0x07();
+    test_pattern_0x07();
 
-    // test_pattern_0x08();
+    test_pattern_0x08();
 
-    // test_pattern_0x09();
+    test_pattern_0x09();
 
-    // test_pattern_0x0A();
+    test_pattern_0x0A();
 
-    // test_dithered_0x0F();
+    test_dithered_0x0F();
 
     if (video_buffer.frnt_buffer) {
         free(video_buffer.frnt_buffer);
@@ -553,6 +553,8 @@ void test_pattern_0x08()
     0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0,   1,1,1, 0,0,0, 1,1,1, 0,0,0, 1,1,1, 0,0,0, 1,1,1, 0,0,0,
     };
 
+    video_buffer.pitch = 2*8*3;
+    video_buffer.block_pitch = 2*8*3;
 
     printf("pattern_0x08() before\n");
     print_buff(test_buff, 16,16, TEST_BUFF_PITCH, PXL_DEPTH);
@@ -563,27 +565,27 @@ void test_pattern_0x08()
     video_buffer.pxls = video_buffer.frnt_buffer;
     // video_buffer.pxls = video_buffer.back_buffer;
 
-    video_buffer.pal[30] = {8,8,8};
-    video_buffer.pal[40] = {9,9,9};
+    video_buffer.pal[10] = {1,1,1};
+    video_buffer.pal[90] = {9,9,9};
     uint8_t data_stream_quad[16] = {
-        30, 40, 0xff, 0xff,
-        30, 40, 0xff, 0xff,
-        30, 40, 0xff, 0xff,
-        40, 30, 0xff, 0xff,
+        10, 90, 0xff, 0xff,
+        10, 90, 0xff, 0xff,
+        10, 90, 0xff, 0xff,
+        90, 10, 0xff, 0xff,
     };
-    int offset = pattern_0x08(data_stream_quad, &test_buff[8*TEST_BUFF_PITCH + 8*3], true, false);
+    // int offset = pattern_0x08(data_stream_quad, &test_buff[8*TEST_BUFF_PITCH + 8*3], true, false);
 
     uint8_t data_stream_LRhalf[16] = {
-        40, 30, 0xff, 0x00, 0xff, 0xff,
-        30, 40, 0xff, 0x00, 0xff, 0xff,
+        90, 10, 0xff, 0x00, 0xff, 0xff,
+        10, 90, 0xff, 0x00, 0xff, 0xff,
     };
     // int offset = pattern_0x08(data_stream_LRhalf, &test_buff[8*TEST_BUFF_PITCH + 8*3], true, false);
 
     uint8_t data_stream_TBhalf[16] = {
-        40, 30, 0xff, 0x00, 0xff, 0xff,
-        40, 30, 0xff, 0x00, 0xff, 0xff,
+        90, 10, 0xff, 0xC3, 0xff, 0x00,
+        90, 10, 0x00, 0xff, 0x00, 0xff,
     };
-    // int offset = pattern_0x08(data_stream_TBhalf, &test_buff[8*TEST_BUFF_PITCH + 8*3], true, false);
+    int offset = pattern_0x08(data_stream_TBhalf, &test_buff[8*TEST_BUFF_PITCH + 8*3], true, false);
 
     printf("pattern_0x08() after\n");
     print_buff(test_buff, 16,16, TEST_BUFF_PITCH, PXL_DEPTH);
@@ -676,12 +678,6 @@ void test_pattern_0x09()
         0x92,
         0x86,
         0xAA,             //patterns
-        // 0x81, 0xC2,
-        // 0x83, 0x42,             //patterns
-        // 0x81, 0xC2,
-        // 0x83, 0x42,             //patterns
-        // 0x81, 0xC2,
-        // 0xAA, 0xAA,             //patterns
     };
     // int offset = pattern_0x09(data_stream_pat1, NULL, &test_buff[8*TEST_BUFF_PITCH + 8*3], true, false);
 
@@ -695,10 +691,6 @@ void test_pattern_0x09()
         0xCB,
         0xEB,
         0xFF,             //patterns
-        // 0x81, 0xC2,
-        // 0x83, 0x42,             //patterns
-        // 0x81, 0xC2,
-        // 0xAA, 0xAA,             //patterns
     };
     // int offset = pattern_0x09(data_stream_pat2, NULL, &test_buff[8*TEST_BUFF_PITCH + 8*3], true, false);
 
@@ -708,12 +700,8 @@ void test_pattern_0x09()
         0xC6, 0xE7,             //patterns
         0xDB, 0x93,
         0xFF, 0xFF,             //patterns
-        // 0x81, 0xC2,
-        // 0x83, 0x42,             //patterns
-        // 0x81, 0xC2,
-        // 0xAA, 0xAA,             //patterns
     };
-    int offset = pattern_0x09(data_stream_pat3, NULL, &test_buff[8*TEST_BUFF_PITCH + 8*3], true, false);
+    // int offset = pattern_0x09(data_stream_pat3, NULL, &test_buff[8*TEST_BUFF_PITCH + 8*3], true, false);
 
     printf("pattern_0x09() after\n");
     print_buff(test_buff, 16,16, TEST_BUFF_PITCH, PXL_DEPTH);

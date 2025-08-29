@@ -6,7 +6,6 @@
 
 void parse_opcode(opcodeinfo op, uint8_t* buffer)
 {
-    // printf("")
     switch (op.type)
     {
     case 0x00:

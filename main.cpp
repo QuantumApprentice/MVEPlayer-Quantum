@@ -6,10 +6,12 @@
 // - Getting Started      https://dearimgui.com/getting-started
 // - Documentation        https://dearimgui.com/docs (same as your local docs/ folder).
 // - Introduction, links and more at the top of imgui.cpp
+bool show_demo_window = false;
 
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
+#include "imgui_internal.h"
 #include <stdio.h>
 #define GL_SILENCE_DEPRECATION
 #include <glad/glad.h>
@@ -125,7 +127,6 @@ int main(int, char**)
     //IM_ASSERT(font != nullptr);
 
     // Our state
-    bool show_demo_window = false;
     ImVec4 clear_color = ImVec4(0.2f, 0.2f, 0.2f, 1.00f);
 
     // Main loop
@@ -250,7 +251,9 @@ bool filter_buttons()
     bool* allow_blit     = video_buffer.allow_blit;
     bool* blit_marker    = video_buffer.blit_marker;
     int spacing = ImGui::GetTextLineHeightWithSpacing();
-    ImGui::SameLine();
+    ImGui::PushItemWidth(100);
+    ImGui::SliderInt("data_offset_init", &video_buffer.data_offset_init, -16, 16, NULL);
+    ImGui::PopItemWidth();
     if (ImGui::Button("All Off")) {
         for (int i = 0; i <= 0xF; i++) {
             allow_blit[i] = false;
@@ -262,9 +265,6 @@ bool filter_buttons()
             allow_blit[i] = true;
         }
     }
-    ImGui::PushItemWidth(100);
-    ImGui::SliderInt("data_offset_init", &video_buffer.data_offset_init, -16, 16, NULL);
-    ImGui::PopItemWidth();
 
     for (int i = 0; i <= 0xF; i++)
     {
@@ -272,12 +272,16 @@ bool filter_buttons()
         if (i == 1 || i == 6) {
             ImGui::BeginDisabled();
         }
-        ImGui::PushItemWidth(100);
-        rerender[i] = ImGui::SliderInt("offset", &video_buffer.data_offset[i], -16,16, NULL);
-        ImGui::PopItemWidth();
+        // ImGui::PushItemWidth(100);
+        // rerender[i] = ImGui::SliderInt("offset", &video_buffer.data_offset[i], -16,16, NULL);
+        // ImGui::PopItemWidth();
+        // ImGui::SameLine();
+        if (ImGui::Button(blit_marker[i] ? "Unmark" : "Mark")) {
+            blit_marker[i] = !blit_marker[i];
+        }
         ImGui::SameLine();
         char button[10];
-        snprintf(button, 10, "0x%0x", i);
+        snprintf(button, 10, "0x%x", i);
         if (ImGui::Button(button)) {
             allow_blit[i] = !allow_blit[i];
         }
@@ -285,10 +289,7 @@ bool filter_buttons()
         ImGui::Text(allow_blit[i] ? "On" : "Off");
         ImGui::SameLine();
         ImGui::Text("%d", video_buffer.encode_type[i]);
-        ImGui::SameLine();
-        if (ImGui::Button(blit_marker[i] ? "Unmark" : "Mark")) {
-            blit_marker[i] = !blit_marker[i];
-        }
+
         if (i == 1 || i == 6) {
             ImGui::EndDisabled();
         }
@@ -348,6 +349,42 @@ bool load_file(char* filename)
     return true;
 }
 
+uint8_t* block_select(uint8_t* selected, float scale, ImVec2 pos, bool show)
+{
+    int block_w = video_buffer.block_w;
+    int block_h = video_buffer.block_h;
+    int total   = block_w*block_h;
+    if (!selected) {
+        selected = (uint8_t*)calloc(1, total*sizeof(uint8_t));
+    }
+    for (int y = 0; y < block_h; y++) {
+        for (int x = 0; x < block_w; x++) {
+            if (x > 0) {ImGui::SameLine();}
+            int cur_block = y*block_w + x;
+            char num[4];
+            snprintf(num, 4, "%03d", cur_block);
+            ImGui::PushID(cur_block);
+            ImGui::SetCursorPos(ImVec2(pos.x+400 + x*8*scale , pos.y + y*8*scale));
+            if (ImGui::Selectable(show ? num : "###", selected[cur_block] != 0,
+                  ImGuiSelectableFlags_NoPadWithHalfSpacing &
+                // ImGuiSelectableFlags_AllowOverlap &
+                0
+                , ImVec2(8*scale, 6*scale)))
+            {
+                // Toggle clicked cell - clear all cells and set single selected
+                // if (e == 2) {
+                //     memset(selected,0,total);
+                //     selected[cur_block] ^= 1;
+                // }
+            }
+            ImGui::PopID();
+        }
+    }
+
+    return selected;
+}
+
+
 void video_player()
 {
     static bool success = false;
@@ -362,7 +399,7 @@ void video_player()
 
     static float scale = 1;                        //video_buffer.scale;
     ImGui::PushItemWidth(200);
-    ImGui::DragFloat("Zoom", &scale, .01, 0, 2.0);
+    ImGui::DragFloat("Zoom", &scale, .01, 0, 3.0);
 
     static ImVec2 pos = ImGui::GetCursorPos();
     static Chunk chunk;
@@ -385,8 +422,8 @@ void video_player()
     if (ImGui::Button("Play MVE")) {
         success = load_file(filename);
     }
-    ImGui::SameLine();
     if (video_buffer.timer.rate != 0) {
+        ImGui::SameLine();
         int rate = video_buffer.timer.rate;
         int subd = video_buffer.timer.subdivision;
         float fps = 1000000.0f/(rate*subd);
@@ -401,6 +438,13 @@ void video_player()
     if (ImGui::Button(pause ? "Play" : "Pause")) {
         pause = !pause;
     }
+    ImGui::SameLine();
+    bool step = false;
+    if (ImGui::Button("Frame Step")) {
+        step = true;
+    }
+    ImGui::SameLine();
+    ImGui::Text("Frame #%d", video_buffer.frame_count);
     if (ImGui::Button(video_buffer.encode_bits == 0x0F ? "low order bits first (0x0F)" : "high order bits first (0xF0)")) {
         video_buffer.encode_bits = ~video_buffer.encode_bits;
     }
@@ -408,17 +452,15 @@ void video_player()
     //buttons
     bool rerender = false;
     rerender = filter_buttons();
-    if (ImGui::Button("reset offsets")) {
-        memset(video_buffer.data_offset, 0, (0xF+1)*sizeof(int));
-    }
+    // if (ImGui::Button("reset offsets")) {
+    //     memset(video_buffer.data_offset, 0, (0xF+1)*sizeof(int));
+    // }
     if (ImGui::Button("re-render frame")) {
         rerender = true;
     }
-
     ImGui::Text("window w: %d  h: %d", video_buffer.window_w, video_buffer.window_h);
     ImGui::Text("render w: %d  h: %d", video_buffer.render_w, video_buffer.render_h);
     ImGui::Text("block  w: %d  h: %d", video_buffer.block_w,  video_buffer.block_h);
-    ImGui::Text("frame: %d",           video_buffer.frame_count);
 
 
     ImGuiIO& io = ImGui::GetIO();
@@ -444,8 +486,10 @@ void video_player()
     } else {
         ImGui::Text("Mouse Out of Bounds");
     }
-
-
+    static bool show = false;
+    if (ImGui::Button("Show Block #")) {
+        show = !show;
+    }
     if (rerender) {
         parse_chunk(chunk);
     }
@@ -462,8 +506,9 @@ void video_player()
             video_buffer.video_texture,
             size, uv_min, uv_max
         );
+        static uint8_t* selected;
+        selected = block_select(selected, scale, pos, show);
         // ImGuiWindow *window = ImGui::GetCurrentWindow();
-        //TODO: change top_corner() for img_pos passed in from outside
         // window->DrawList->AddImage(
         //     (ImTextureID)(uintptr_t)img_data->render_texture,
         //     top_corner(img_data->offset), bottom_corner(size, top_corner(img_data->offset)),
@@ -471,8 +516,8 @@ void video_player()
         //     ImGui::GetColorU32(My_Variables->tint_col));
     }
     if (pause && chunk.info.type == CHUNK_video) {
-        if (ImGui::Button("Frame Step")) {
-            // bypass the return for one click (should be one frame)
+        if (step) {
+            // bypass the return for one click (should be same as one frame)
         } else {
             return;
         }

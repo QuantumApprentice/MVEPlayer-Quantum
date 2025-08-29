@@ -601,12 +601,12 @@ int pattern_0x08(uint8_t* data_stream, uint8_t* dst_buff, bool blit, bool mark)
             {
             case 1:
                 start.y = 4;        // q==1 => x = 0
-                start.h = 8;
-                break;              //         y = 4
+                start.h = 8;        //         y = 4
+                break;
             case 2:
                 start.x = 4;        // q==2 => x = 4
-                start.w = 8;
-                break;              //         y = 0
+                start.w = 8;        //         y = 0
+                break;
             case 3:
                 start.x = 4;        // q==3 => x = 4
                 start.y = 4;        //         y = 4
@@ -831,6 +831,7 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
     int byte_index = 0;
 
     if (P[0] <= P[1] && P[2] <= P[3]) {
+        //patterned pixels
         offset = 20;
         for (int y = 0; y < 8; y++)
         {
@@ -876,6 +877,7 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
         }
     }
     if (P[0] <= P[1] && P[2] > P[3]) {
+        //2x2 pixel pattern
         offset = 8;
         for (int y = 0; y < 8; y+=2)
         {
@@ -925,6 +927,7 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
         }
     }
     if (P[0] > P[1] && P[2] <= P[3]) {
+        //2x1 pixel pattern
         offset = 12;
         for (int y = 0; y < 8; y++)
         {
@@ -974,11 +977,10 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
         }
     }
     if (P[0] > P[1] && P[2] > P[3]) {
+        //1x2 pixel pattern
         offset = 12;
-        for (int y = 0; y < 8; y+=2)
-        {
-            for (int x = 0; x < 8; x++)
-            {
+        for (int y = 0; y < 8; y+=2) {
+            for (int x = 0; x < 8; x++) {
                 //TODO: and again,
                 //      apparently the bits are read from low to high
                 //      while matching pixels from left to right
