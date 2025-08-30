@@ -745,23 +745,20 @@ int pattern_0x08(uint8_t* data_stream, uint8_t* dst_buff, bool blit, bool mark)
                         if (mask_offset >= 8) {
                             mask_offset = 0;
                         }
+
                         bool which;
-                        switch (y)
+                        switch (y&0x3)
                         {
                         case 0:
-                        case 4:
                             which = block.half[h].B0 & mask;
                             break;
                         case 1:
-                        case 5:
                             which = block.half[h].B1 & mask;
                             break;
                         case 2:
-                        case 6:
                             which = block.half[h].B2 & mask;
                             break;
                         case 3:
-                        case 7:
                             which = block.half[h].B3 & mask;
                             break;
                         }

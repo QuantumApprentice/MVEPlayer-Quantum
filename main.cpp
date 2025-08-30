@@ -247,13 +247,14 @@ int get_filesize(FILE* fileptr)
 
 bool filter_buttons()
 {
-    bool rerender[0xF+1] = {};
     bool* allow_blit     = video_buffer.allow_blit;
     bool* blit_marker    = video_buffer.blit_marker;
-    int spacing = ImGui::GetTextLineHeightWithSpacing();
+#ifdef DEBUG
+    bool rerender[0xF+1] = {};
     ImGui::PushItemWidth(100);
     ImGui::SliderInt("data_offset_init", &video_buffer.data_offset_init, -16, 16, NULL);
     ImGui::PopItemWidth();
+#endif
     if (ImGui::Button("All Off")) {
         for (int i = 0; i <= 0xF; i++) {
             allow_blit[i] = false;
@@ -272,10 +273,12 @@ bool filter_buttons()
         if (i == 1 || i == 6) {
             ImGui::BeginDisabled();
         }
-        // ImGui::PushItemWidth(100);
-        // rerender[i] = ImGui::SliderInt("offset", &video_buffer.data_offset[i], -16,16, NULL);
-        // ImGui::PopItemWidth();
-        // ImGui::SameLine();
+#ifdef DEBUG
+        ImGui::PushItemWidth(100);
+        rerender[i] = ImGui::SliderInt("offset", &video_buffer.data_offset[i], -16,16, NULL);
+        ImGui::PopItemWidth();
+        ImGui::SameLine();
+#endif
         if (ImGui::Button(blit_marker[i] ? "Unmark" : "Mark")) {
             blit_marker[i] = !blit_marker[i];
         }
@@ -295,14 +298,18 @@ bool filter_buttons()
         }
         ImGui::PopID();
     }
-
+#ifdef DEBUG
+    if (ImGui::Button("reset offsets")) {
+        memset(video_buffer.data_offset, 0, (0xF+1)*sizeof(int));
+    }
     for (int i = 0; i <= 0xF; i++)
     {
         if (rerender[i]) {
             return true;
         }
     }
-    
+#endif
+
     return false;
 }
 
@@ -426,6 +433,58 @@ void show_palette(ImVec2 pos)
     }
 }
 
+//plots chunks used per frame for easy display
+void plot_chunk_usage()
+{
+    // Fill an array of contiguous float values to plot
+    static float values[101] = {};
+    static int values_offset = 0;
+    int index = video_buffer.frame_count % 100;
+    values[index] = video_buffer.chunk_per_frame;
+    values[index+1] = 0;
+    // float average = 0.0f;
+    // for (int n = 0; n < IM_ARRAYSIZE(values); n++)
+        // average += values[n];
+    // average /= (float)IM_ARRAYSIZE(values);
+    char overlay[32];
+    sprintf(overlay, "Chunks per Frame\n         %d", video_buffer.chunk_per_frame);
+    ImGui::PlotLines("###", values, 100, 0, overlay, -1.0f, 10.0f, ImVec2(0, 80.0f));
+}
+
+bool show_block_info(ImVec2 pos, float scale)
+{
+
+    ImGuiIO& io = ImGui::GetIO();
+    float mouse_x, mouse_y;
+    if (io.MousePos.x > (pos.x + 400) && io.MousePos.x < (pos.x + 400 + video_buffer.render_w*scale)
+    && (io.MousePos.y > pos.y && io.MousePos.y < (pos.y + video_buffer.render_h*scale))) {
+        mouse_x = io.MousePos.x - pos.x - 400;
+        mouse_y = io.MousePos.y - pos.y;
+    } else {
+        mouse_x = -1;
+        mouse_y = -1;
+    }
+
+    if (mouse_x >= 0 && mouse_y >= 0 && video_buffer.map_stream) {
+        int block_num = (int)(mouse_y/(8*scale))*video_buffer.block_w + mouse_x/8/scale;
+        // int block_enc = (video_buffer.map_stream[block_num] >> 4*(block_num%2)) & 0x0F;
+        int block_enc = video_buffer.map_stream[block_num/2];
+
+        ImGui::Text("Mouse x: %g y: %g", mouse_x, mouse_y);
+        ImGui::Text("Block #%d", block_num);
+        // ImGui::Text("which encode? %d", block_num%2);
+        ImGui::Text("Encode type: %02x", block_enc);
+    } else {
+        ImGui::Text("Mouse Out of Bounds");
+        ImGui::Dummy({0,ImGui::GetTextLineHeight()*2.35});
+    }
+    static bool show = false;
+    if (ImGui::Button("Show Block #")) {
+        show = !show;
+    }
+    return show;
+}
+
 
 void video_player()
 {
@@ -487,18 +546,16 @@ void video_player()
     }
     ImGui::SameLine();
     ImGui::Text("Frame #%d", video_buffer.frame_count);
-    if (ImGui::Button(video_buffer.encode_bits == 0x0F ? "low order bits first (0x0F)" : "high order bits first (0xF0)")) {
-        video_buffer.encode_bits = ~video_buffer.encode_bits;
-    }
+#ifdef DEBUG
+        if (ImGui::Button(video_buffer.encode_bits == 0x0F ? "low order bits first (0x0F)" : "high order bits first (0xF0)")) {
+            video_buffer.encode_bits = ~video_buffer.encode_bits;
+        }
+#endif
 
     //buttons
     bool rerender = false;
     rerender = filter_buttons();
 
-    //TODO: add #define/ifdef/etc to only have this on for debug sessions
-    // if (ImGui::Button("reset offsets")) {
-    //     memset(video_buffer.data_offset, 0, (0xF+1)*sizeof(int));
-    // }
     if (ImGui::Button("re-render frame")) {
         rerender = true;
     }
@@ -506,34 +563,10 @@ void video_player()
     ImGui::Text("render w: %d  h: %d", video_buffer.render_w, video_buffer.render_h);
     ImGui::Text("block  w: %d  h: %d", video_buffer.block_w,  video_buffer.block_h);
 
+    bool show = show_block_info(pos, scale);
 
-    ImGuiIO& io = ImGui::GetIO();
-    float mouse_x, mouse_y;
-    if (io.MousePos.x > (pos.x + 400) && io.MousePos.x < (pos.x + 400 + video_buffer.render_w*scale)
-    && (io.MousePos.y > pos.y && io.MousePos.y < (pos.y + video_buffer.render_h*scale))) {
-        mouse_x = io.MousePos.x - pos.x - 400;
-        mouse_y = io.MousePos.y - pos.y;
-    } else {
-        mouse_x = -1;
-        mouse_y = -1;
-    }
+    plot_chunk_usage();
 
-    if (mouse_x >= 0 && mouse_y >= 0 && video_buffer.map_stream) {
-        int block_num = (int)(mouse_y/(8*scale))*video_buffer.block_w + mouse_x/8/scale;
-        // int block_enc = (video_buffer.map_stream[block_num] >> 4*(block_num%2)) & 0x0F;
-        int block_enc = video_buffer.map_stream[block_num/2];
-
-        ImGui::Text("Mouse x: %g y: %g", mouse_x, mouse_y);
-        ImGui::Text("Block #%d", block_num);
-        // ImGui::Text("which encode? %d", block_num%2);
-        ImGui::Text("Encode type: %02x", block_enc);
-    } else {
-        ImGui::Text("Mouse Out of Bounds");
-    }
-    static bool show = false;
-    if (ImGui::Button("Show Block #")) {
-        show = !show;
-    }
     if (rerender) {
         parse_chunk(chunk);
     }
