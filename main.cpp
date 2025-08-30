@@ -476,7 +476,7 @@ bool show_block_info(ImVec2 pos, float scale)
         ImGui::Text("Encode type: %02x", block_enc);
     } else {
         ImGui::Text("Mouse Out of Bounds");
-        ImGui::Dummy({0,ImGui::GetTextLineHeight()*2.35});
+        ImGui::Dummy({0,ImGui::GetTextLineHeight()*2.35f});
     }
     static bool show = false;
     if (ImGui::Button("Show Block #")) {
