@@ -351,11 +351,18 @@ bool load_file(char* filename)
 
 uint8_t* block_select(uint8_t* selected, float scale, ImVec2 pos, bool show)
 {
-    int block_w = video_buffer.block_w;
-    int block_h = video_buffer.block_h;
-    int total   = block_w*block_h;
-    if (!selected) {
-        selected = (uint8_t*)calloc(1, total*sizeof(uint8_t));
+    //TODO: clean this shit up
+    int block_w      = video_buffer.block_w;
+    int block_h      = video_buffer.block_h;
+    static int total = 0;
+    if (total != block_w*block_h) {
+        total = block_w*block_h;
+        if (!selected) {
+            selected = (uint8_t*)calloc(1, total*sizeof(uint8_t));
+        } else {
+            free(selected);
+            selected = (uint8_t*)calloc(1, total*sizeof(uint8_t));
+        }
     }
     for (int y = 0; y < block_h; y++) {
         for (int x = 0; x < block_w; x++) {
@@ -365,11 +372,7 @@ uint8_t* block_select(uint8_t* selected, float scale, ImVec2 pos, bool show)
             snprintf(num, 4, "%03d", cur_block);
             ImGui::PushID(cur_block);
             ImGui::SetCursorPos(ImVec2(pos.x+400 + x*8*scale , pos.y + y*8*scale));
-            if (ImGui::Selectable(show ? num : "###", selected[cur_block] != 0,
-                  ImGuiSelectableFlags_NoPadWithHalfSpacing &
-                // ImGuiSelectableFlags_AllowOverlap &
-                0
-                , ImVec2(8*scale, 6*scale)))
+            if (ImGui::Selectable(show ? num : "###", selected[cur_block] != 0, 0, ImVec2(8*scale, 6*scale)))
             {
                 // Toggle clicked cell - clear all cells and set single selected
                 // if (e == 2) {
@@ -381,7 +384,46 @@ uint8_t* block_select(uint8_t* selected, float scale, ImVec2 pos, bool show)
         }
     }
 
+
+    // ImGuiIO& io = ImGui::GetIO();
+    // if (ImGui::BeginItemTooltip())
+    // {
+    //     float region_sz = 32.0f;
+    //     float region_x = io.MousePos.x - pos.x - region_sz * 0.5f;
+    //     float region_y = io.MousePos.y - pos.y - region_sz * 0.5f;
+    //     float zoom = 4.0f;
+    //     if (region_x < 0.0f) { region_x = 0.0f; }
+    //     else if (region_x > my_tex_w - region_sz) { region_x = my_tex_w - region_sz; }
+    //     if (region_y < 0.0f) { region_y = 0.0f; }
+    //     else if (region_y > my_tex_h - region_sz) { region_y = my_tex_h - region_sz; }
+    //     ImGui::Text("Min: (%.2f, %.2f)", region_x, region_y);
+    //     ImGui::Text("Max: (%.2f, %.2f)", region_x + region_sz, region_y + region_sz);
+    //     ImVec2 uv0 = ImVec2((region_x) / my_tex_w, (region_y) / my_tex_h);
+    //     ImVec2 uv1 = ImVec2((region_x + region_sz) / my_tex_w, (region_y + region_sz) / my_tex_h);
+    //     ImGui::ImageWithBg(my_tex_id, ImVec2(region_sz * zoom, region_sz * zoom), uv0, uv1, ImVec4(0.0f, 0.0f, 0.0f, 1.0f));
+    //     ImGui::EndTooltip();
+    // }
+
     return selected;
+}
+
+void show_palette(ImVec2 pos)
+{
+    ImGui::SetCursorPos(pos);
+    for (int y = 0; y < 32; y++)
+    {
+        ImGui::SetCursorPosX(pos.x+250);
+        ImGui::SetCursorPosY(ImGui::GetCursorPosY()-3);
+        for (int x = 0; x < 8; x++)
+        {
+            if (x > 0) {ImGui::SameLine(0,0);}
+            int index = y*8 + x;
+            char color_info[12];
+            snprintf(color_info, 12, "%d##aa%d", index, index);
+            palette color = video_buffer.pal[index];
+            ImGui::ColorButton(color_info, ImVec4(color.r/255.0f, color.g/255.0f, color.b/255.0f, 1.0), 0, ImVec2(18,18));
+        }
+    }
 }
 
 
@@ -413,7 +455,6 @@ void video_player()
     );
     ImGui::PopItemWidth();
 
-    // char* filename = files[which_file].filename;
     char* filename = video_buffer.filename ? video_buffer.filename : files[which_file].filename;
     if (video_buffer.file_drop_frame) {
         video_buffer.file_drop_frame = false;
@@ -422,6 +463,7 @@ void video_player()
     if (ImGui::Button("Play MVE")) {
         success = load_file(filename);
     }
+
     if (video_buffer.timer.rate != 0) {
         ImGui::SameLine();
         int rate = video_buffer.timer.rate;
@@ -452,6 +494,8 @@ void video_player()
     //buttons
     bool rerender = false;
     rerender = filter_buttons();
+
+    //TODO: add #define/ifdef/etc to only have this on for debug sessions
     // if (ImGui::Button("reset offsets")) {
     //     memset(video_buffer.data_offset, 0, (0xF+1)*sizeof(int));
     // }
@@ -494,6 +538,8 @@ void video_player()
         parse_chunk(chunk);
     }
 
+    show_palette(pos);
+
     //image
     if (video_buffer.pxls) {
         ImGui::SetCursorPos(ImVec2(pos.x+400, pos.y));
@@ -506,6 +552,7 @@ void video_player()
             video_buffer.video_texture,
             size, uv_min, uv_max
         );
+        //TODO: clean this shit up
         static uint8_t* selected;
         selected = block_select(selected, scale, pos, show);
         // ImGuiWindow *window = ImGui::GetCurrentWindow();
@@ -514,7 +561,13 @@ void video_player()
         //     top_corner(img_data->offset), bottom_corner(size, top_corner(img_data->offset)),
         //     uv_min, uv_max,
         //     ImGui::GetColorU32(My_Variables->tint_col));
+    } else {
+        ImGui::SameLine();
+        if (!success) {
+            ImGui::Text("Unable to open %s", filename);
+        }
     }
+
     if (pause && chunk.info.type == CHUNK_video) {
         if (step) {
             // bypass the return for one click (should be same as one frame)
@@ -539,7 +592,8 @@ void video_player()
             success = false;
         }
     } else {
-        ImGui::Text("Unable to open %s", filename);
+        ImGui::SetCursorPos({pos.x + 400, pos.y-20});
+        ImGui::Text("File closed");
     }
 }
 

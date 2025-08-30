@@ -56,6 +56,9 @@ struct video {
     int block_w;
     int block_h;
 
+    int chunk_cnt_total = 0;
+    int chunk_cnt_last  = 0;
+    int chunk_per_frame = 0;
     int encode_type[0xf+1];
     int frame_count = 0;
     bool blit_marker[16];

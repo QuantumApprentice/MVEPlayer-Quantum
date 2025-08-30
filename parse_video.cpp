@@ -167,6 +167,8 @@ void create_timer(uint8_t* buffer)
 void send_buffer_to_display(uint8_t* buffer)
 {
     video_buffer.frame_count++;
+    video_buffer.chunk_per_frame = video_buffer.chunk_cnt_total - video_buffer.chunk_cnt_last;
+    video_buffer.chunk_cnt_last  = video_buffer.chunk_cnt_total;
     struct pal_info {
         uint16_t start;
         uint16_t count;
@@ -184,17 +186,10 @@ void send_buffer_to_display(uint8_t* buffer)
     int h      = video_buffer.render_h;
 
     blit_to_texture(tex, video_buffer.pxls, w, h);
-    // swap buffers
-    if (video_buffer.pxls == video_buffer.frnt_buffer) {
-        video_buffer.pxls = video_buffer.back_buffer;
-    } else {
-        video_buffer.pxls = video_buffer.frnt_buffer;
-    }
 }
 
 void parse_video_chunk(uint8_t* chunk, chunkinfo info)
 {
-    static int chunk_num = 0;
     int offset = 0;
     while (offset < info.size) {
         opcodeinfo op;
@@ -206,7 +201,7 @@ void parse_video_chunk(uint8_t* chunk, chunkinfo info)
         parse_opcode(op, &chunk[offset]);
         offset += op.size;
     }
-    printf("done processing video chunk# %d\n", chunk_num++);
+    printf("done processing video chunk# %d\n", video_buffer.chunk_cnt_total++);
 }
 
 void parse_decoding_map(uint8_t* buffer, int size)
@@ -1528,7 +1523,6 @@ int parse_video_encode(uint8_t op, uint8_t* data_stream, uint8_t* frame_buffer, 
 void parse_video_data(uint8_t* buffer)
 {
     uint8_t* data_stream = buffer;
-    uint8_t* next_frame  = video_buffer.pxls;
     uint8_t* map_stream  = video_buffer.map_stream;
 
     int encode_type_previous_frame[0xf];
@@ -1541,6 +1535,24 @@ void parse_video_data(uint8_t* buffer)
         // memset(video_buffer.frnt_buffer, 0, video_buffer.render_w*video_buffer.render_h*3);
         // memset(video_buffer.back_buffer, 0, video_buffer.render_w*video_buffer.render_h*3);
     }
+
+    //apparently the video buffers are only swapped based on a single bit flag
+    //  set in the first 14 bytes (might be 16 in later encodes) of the actual
+    //  frame(?) data, not when you go to blit the buffer to the render engine
+    // swap buffers
+    #define SWAP_BUFFER_BIT         (1)
+    uint16_t flags = *(uint16_t*)&buffer[12];
+    if (flags & SWAP_BUFFER_BIT) {
+        if (video_buffer.pxls == video_buffer.frnt_buffer) {
+            video_buffer.pxls  = video_buffer.back_buffer;
+        } else {
+            video_buffer.pxls  = video_buffer.frnt_buffer;
+        }
+    }
+    //and apparently when you swap the buffers based on the bit flag
+    //  the next frame the be drawn to is whatever video_buffer.pxls
+    //  points to (as assigned here)
+    uint8_t* next_frame = video_buffer.pxls;
 
     // x_offset & y_offset == offset into the framebuffer in pixels
     int x_offset    = 0;
