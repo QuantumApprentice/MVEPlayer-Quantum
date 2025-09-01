@@ -167,8 +167,8 @@ void create_timer(uint8_t* buffer)
 void send_buffer_to_display(uint8_t* buffer)
 {
     video_buffer.frame_count++;
-    video_buffer.chunk_per_frame = video_buffer.chunk_cnt_total - video_buffer.chunk_cnt_last;
-    video_buffer.chunk_cnt_last  = video_buffer.chunk_cnt_total;
+    video_buffer.v_chunk_per_frame = video_buffer.v_chunk_cnt_total - video_buffer.v_chunk_cnt_last;
+    video_buffer.v_chunk_cnt_last  = video_buffer.v_chunk_cnt_total;
     struct pal_info {
         uint16_t start;
         uint16_t count;
@@ -188,9 +188,10 @@ void send_buffer_to_display(uint8_t* buffer)
     blit_to_texture(tex, video_buffer.pxls, w, h);
 }
 
-void parse_video_chunk(uint8_t* chunk, chunkinfo info)
+bool parse_video_chunk(uint8_t* chunk, chunkinfo info)
 {
     int offset = 0;
+    bool render_frame = false;
     while (offset < info.size) {
         opcodeinfo op;
         memcpy(&op, &chunk[offset], sizeof(op));
@@ -200,8 +201,14 @@ void parse_video_chunk(uint8_t* chunk, chunkinfo info)
 
         parse_opcode(op, &chunk[offset]);
         offset += op.size;
+
+        if (op.type == 0x07) {
+            render_frame = true;
+        }
     }
-    printf("done processing video chunk# %d\n", video_buffer.chunk_cnt_total++);
+    printf("done processing video chunk# %d\n", video_buffer.v_chunk_cnt_total++);
+
+    return render_frame;
 }
 
 void parse_decoding_map(uint8_t* buffer, int size)

@@ -56,9 +56,9 @@ struct video {
     int block_w;
     int block_h;
 
-    int chunk_cnt_total = 0;
-    int chunk_cnt_last  = 0;
-    int chunk_per_frame = 0;
+    int v_chunk_cnt_total = 0;
+    int v_chunk_cnt_last  = 0;
+    int v_chunk_per_frame = 0;
     int encode_type[0xf+1];
     int frame_count = 0;
     bool blit_marker[16];
@@ -92,7 +92,7 @@ void init_video_buffer(uint8_t* buffer, uint8_t version);
 void init_video_mode(uint8_t* buffer);
 void init_palette(uint8_t* buffer);
 
-void parse_video_chunk(uint8_t* chunk, chunkinfo info);
+bool parse_video_chunk(uint8_t* chunk, chunkinfo info);
 void create_timer(uint8_t* buffer);
 void parse_decoding_map(uint8_t* buffer, int size);
 

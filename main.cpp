@@ -7,6 +7,7 @@
 // - Documentation        https://dearimgui.com/docs (same as your local docs/ folder).
 // - Introduction, links and more at the top of imgui.cpp
 bool show_demo_window = false;
+bool enable_vsync     = true;
 
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -20,6 +21,7 @@ bool show_demo_window = false;
 #include "parse_video.h"
 #include "parse_audio.h"
 #include "io_Platform.h"
+#include "io_Timer.h"
 #include <malloc.h>
 
 video video_buffer;
@@ -31,7 +33,7 @@ struct Chunk {
 FILE* open_file(char* filename);
 bool parse_header(FILE* fileptr);
 Chunk read_chunk(FILE* fileptr);
-void parse_chunk(Chunk chunk);
+bool parse_chunk(Chunk chunk);
 int get_filesize(FILE* fileptr);
 void video_player();
 
@@ -85,7 +87,7 @@ int main(int, char**)
     glfwSetKeyCallback(window, key_callback);
     glfwSetDropCallback(window, file_drop_callback);
     glfwMakeContextCurrent(window);
-    glfwSwapInterval(1); // Enable vsync
+    glfwSwapInterval(enable_vsync); // Enable vsync
 
     init_glad();
 
@@ -166,7 +168,7 @@ int main(int, char**)
 #endif
 
         ImGui::Begin("MVE Player!");
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+        ImGui::Text("Application average %.3f ms/frame (%.6f FPS)", 1000.0f / io.Framerate, io.Framerate);
         video_player();
         ImGui::End();
 
@@ -440,14 +442,14 @@ void plot_chunk_usage()
     static float values[101] = {};
     static int values_offset = 0;
     int index = video_buffer.frame_count % 100;
-    values[index] = video_buffer.chunk_per_frame;
+    values[index] = video_buffer.v_chunk_per_frame;
     values[index+1] = 0;
     // float average = 0.0f;
     // for (int n = 0; n < IM_ARRAYSIZE(values); n++)
         // average += values[n];
     // average /= (float)IM_ARRAYSIZE(values);
     char overlay[32];
-    sprintf(overlay, "Chunks per Frame\n         %d", video_buffer.chunk_per_frame);
+    sprintf(overlay, "Video Chunks per Frame\n         %d", video_buffer.v_chunk_per_frame);
     ImGui::PlotLines("###", values, 100, 0, overlay, -1.0f, 10.0f, ImVec2(0, 80.0f));
 }
 
@@ -488,15 +490,14 @@ bool show_block_info(ImVec2 pos, float scale)
 
 void video_player()
 {
-    static bool success = false;
+    static bool file_loaded     = false;
+    static bool render_on_chunk = false;
 
-    struct file_list {
-        char filename[32];
-    } files[3] = {
-        "../../testing/FO1/IPLOGO.MVE",
-        "../../testing/FO2/IPLOGO.MVE",
-        "../../testing/final.mve",
-    };
+    if (ImGui::Checkbox("VSync", &enable_vsync)) {
+        glfwSwapInterval(enable_vsync); // Enable vsync
+    }
+    ImGui::SameLine();
+    ImGui::Checkbox("Render on every chunk (not on frame)", &render_on_chunk);
 
     static float scale = 1;                        //video_buffer.scale;
     ImGui::PushItemWidth(200);
@@ -506,6 +507,14 @@ void video_player()
     static Chunk chunk;
     static bool pause = false;
     static int which_file = 0;
+
+    struct file_list {
+        char filename[32];
+    } files[3] = {
+        "../../testing/FO1/IPLOGO.MVE",
+        "../../testing/FO2/IPLOGO.MVE",
+        "../../testing/final.mve",
+    };
     ImGui::Combo("file", &which_file,
         video_buffer.filename ? video_buffer.filename :
         "FO1 IPLOGO.MVE\0"
@@ -517,10 +526,10 @@ void video_player()
     char* filename = video_buffer.filename ? video_buffer.filename : files[which_file].filename;
     if (video_buffer.file_drop_frame) {
         video_buffer.file_drop_frame = false;
-        success = load_file(filename);
+        file_loaded = load_file(filename);
     }
     if (ImGui::Button("Play MVE")) {
-        success = load_file(filename);
+        file_loaded = load_file(filename);
     }
 
     if (video_buffer.timer.rate != 0) {
@@ -532,7 +541,7 @@ void video_player()
         ImGui::SetItemTooltip(
             "rate (ms to display frame/subdivision) : %d\n"
             "subdivision (dunno, so far always 8)   : %d\n"
-            "FPS = 1000000.0f/(rate*subd)", rate, subd
+            "FPS = 1,000,000.0f/(rate*subd)", rate, subd
         );
     }
 
@@ -596,7 +605,7 @@ void video_player()
         //     ImGui::GetColorU32(My_Variables->tint_col));
     } else {
         ImGui::SameLine();
-        if (!success) {
+        if (!file_loaded) {
             ImGui::Text("Unable to open %s", filename);
         }
     }
@@ -609,20 +618,37 @@ void video_player()
         }
     }
 
-    if (success) {
-        if (chunk.chunk) {
-            free(chunk.chunk);
-            chunk.chunk = NULL;
-        }
-
-        chunk = read_chunk(video_buffer.fileptr);
-        parse_chunk(chunk);
-        if (chunk.info.type == CHUNK_end) {
-            if (video_buffer.fileptr) {
-                fclose(video_buffer.fileptr);
-                video_buffer.fileptr = NULL;
+    if (file_loaded) {
+        while (file_loaded)
+        {
+            if (chunk.chunk) {
+                free(chunk.chunk);
+                chunk.chunk = NULL;
             }
-            success = false;
+
+            chunk = read_chunk(video_buffer.fileptr);
+            bool render_frame = parse_chunk(chunk);
+            if (chunk.info.type == CHUNK_end) {
+                if (video_buffer.fileptr) {
+                    fclose(video_buffer.fileptr);
+                    video_buffer.fileptr = NULL;
+                }
+                file_loaded = false;
+            }
+
+            if (render_frame || render_on_chunk) {
+
+                static uint64_t last_frame;
+                uint64_t curr_time = io_nano_time();
+                timer_struct mve_timer = video_buffer.timer;
+                int frame_time = mve_timer.rate * mve_timer.subdivision *1000;
+                while (curr_time <= (last_frame + frame_time)) {
+                    curr_time = io_nano_time();
+                }
+                last_frame = curr_time;
+
+                break;
+            }
         }
     } else {
         ImGui::SetCursorPos({pos.x + 400, pos.y-20});
@@ -655,8 +681,9 @@ Chunk read_chunk(FILE* fileptr)
     return chunk;
 }
 
-void parse_chunk(Chunk chunk)
+bool parse_chunk(Chunk chunk)
 {
+    bool render_frame = false;
     switch (chunk.info.type)
     {
     case CHUNK_init_audio:
@@ -676,7 +703,7 @@ void parse_chunk(Chunk chunk)
         break;
     case CHUNK_video:
         printf("processing video\n");
-        parse_video_chunk(chunk.chunk, chunk.info);
+        render_frame = parse_video_chunk(chunk.chunk, chunk.info);
         break;
     case CHUNK_shutdown:
         printf("shutting down\n");
@@ -697,4 +724,5 @@ void parse_chunk(Chunk chunk)
     }
 
     printf("%d frames processed\n", video_buffer.frame_count);
+    return render_frame;
 }

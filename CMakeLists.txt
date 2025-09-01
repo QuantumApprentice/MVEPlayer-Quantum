@@ -14,7 +14,25 @@ target_sources(
     shader_class.cpp
     io_OpenGL.cpp
     io_Platform.cpp
+    io_Timer.cpp
 )
+
+# Windows compile stuff
+if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+target_compile_definitions(
+  ${EXE_NAME}
+  PUBLIC WINDOWS
+)
+
+# Linux compile stuff
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+target_compile_definitions(
+  ${EXE_NAME}
+  PUBLIC LINUX
+)
+endif()
+
+
 
 add_library(ImGui
     dependencies/imgui-1.92.1/backends/imgui_impl_opengl3.h
