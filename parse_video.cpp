@@ -578,8 +578,8 @@ int pattern_0x08(uint8_t* data_stream, uint8_t* dst_buff, bool blit, bool mark)
     };
     union half_quads
     {
-        quadrant quad[4];
-        halfpart half[2];
+        quadrant quad[4];   //16 bytes
+        halfpart half[2];   //12 bytes
     };
 #pragma pack(pop)
 
@@ -617,10 +617,8 @@ int pattern_0x08(uint8_t* data_stream, uint8_t* dst_buff, bool blit, bool mark)
                 break;
             }
 
-            for (int y = start.y; y < start.h; y++)
-            {
-                for (int x = start.x; x < start.w; x++)
-                {
+            for (int y = start.y; y < start.h; y++) {
+                for (int x = start.x; x < start.w; x++) {
                     //TODO: and again,
                     //      apparently the bits are read from low to high
                     //      while matching pixels from left to right
@@ -630,7 +628,7 @@ int pattern_0x08(uint8_t* data_stream, uint8_t* dst_buff, bool blit, bool mark)
                         mask_offset = 0;
                     }
                     bool indx;
-                    if (y < 2) {
+                    if (y < start.h-2) {
                         indx = block.quad[q].B0 & mask;
                     } else {
                         indx = block.quad[q].B1 & mask;
@@ -676,10 +674,8 @@ int pattern_0x08(uint8_t* data_stream, uint8_t* dst_buff, bool blit, bool mark)
                 }
 
                 // Left & Right half
-                for (int y = 0; y < 8; y++)
-                {
-                    for (int x = start.x; x < start.w; x++)
-                    {
+                for (int y = 0; y < 8; y++) {
+                    for (int x = start.x; x < start.w; x++) {
                         //TODO: and again,
                         //      apparently the bits are read from low to high
                         //      while matching pixels from left to right
@@ -740,10 +736,8 @@ int pattern_0x08(uint8_t* data_stream, uint8_t* dst_buff, bool blit, bool mark)
                 }
 
                 //Top & Bottom half
-                for (int y = start.y; y < start.h; y++)
-                {
-                    for (int x = 0; x < 8; x++)
-                    {
+                for (int y = start.y; y < start.h; y++) {
+                    for (int x = 0; x < 8; x++) {
                         //TODO: and again,
                         //      apparently the bits are read from low to high
                         //      while matching pixels from left to right
@@ -753,7 +747,7 @@ int pattern_0x08(uint8_t* data_stream, uint8_t* dst_buff, bool blit, bool mark)
                             mask_offset = 0;
                         }
 
-                        bool which;
+                        uint8_t which;
                         switch (y&0x3)
                         {
                         case 0:
