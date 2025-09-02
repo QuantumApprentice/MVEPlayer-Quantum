@@ -117,7 +117,6 @@ void init_palette(uint8_t* buffer)
             i++;
         }
     }
-    // memcpy(&video_buffer.pal[i], &buffer[4], pal_info.count*3);
     for (int i = 0; i < pal_info.count; i++)
     {   //shift to get the palette color correct
         video_buffer.pal[pal_info.start + i].r = buffer[i*3 + 4 + 0] << 2;
@@ -137,10 +136,6 @@ void init_palette(uint8_t* buffer)
 
 void init_video(uint8_t* chunk, chunkinfo info)
 {
-    // uint8_t* chunk = (uint8_t*)calloc(1, info.size);
-    // fread(chunk, info.size, 1, fileptr);
-    // printf("chunk -- size: %d type: %d\n", info.size, info.type);
-
     int offset = 0;
     while (offset < info.size)
     {
@@ -152,7 +147,6 @@ void init_video(uint8_t* chunk, chunkinfo info)
         parse_opcode(op, &chunk[offset]);
         offset += op.size;
     }
-    // free(chunk);
 }
 
 void create_timer(uint8_t* buffer)
@@ -225,7 +219,6 @@ int blockCopy_0x00(uint8_t* data_stream, uint8_t* dst_buff, int offset_x, int of
     int buff_pitch      = video_buffer.block_pitch;
     int frame_pitch     = video_buffer.pitch;
 
-    //TODO: "current" should be the previous frame rendered
     //copy from "current" frame
     uint8_t* current = NULL;
     uint8_t* next = video_buffer.pxls;
@@ -288,13 +281,8 @@ int cornerCopy_0x02(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* d
         src_rect.y =   8 + ((B-56) /29);
     }
 
-    // offset from total
-    // src_rect.x += x_offset;
-    // src_rect.y += y_offset;
-
     // "new" frame is video_buffer.pxls
-    //TODO: copy from "new" frame?
-    // BlitSurface(video_buffer.pxls, src_rect, block_buff, buff_rect, frame_pitch, buff_pitch);
+    // copy from "new" frame
     BlitSurface(dst_buff, src_rect, frame_pitch, block_buff, buff_rect, buff_pitch);
     if (mark) {
         PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
@@ -333,14 +321,9 @@ int cornerCopy_0x03(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* d
         src_rect.x = -(-14 + ((B-56) %29));
         src_rect.y = -(  8 + ((B-56) /29));
     }
-    // offset from total
-    // src_rect.x += x_offset;
-    // src_rect.y += y_offset;
 
     // "new" frame is video_buffer.pxls
-    //TODO:
-    //copy from "new" frame?
-    // BlitSurface(video_buffer.pxls, src_rect, block_buff, buff_rect, frame_pitch, buff_pitch);
+    //copy from "new" frame
     BlitSurface(dst_buff, src_rect, frame_pitch, block_buff, buff_rect, buff_pitch);
     if (mark) {
         PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
@@ -358,21 +341,23 @@ int symmetricCopy_0x04(uint8_t* data_stream, int x_offset, int y_offset, uint8_t
     int block_pitch     = video_buffer.block_pitch;
     int frame_pitch     = video_buffer.pitch;
 
-// #pragma pack(push,1)
-//     struct byte {
-//         uint8_t BL : 4;     //bitfield - only read the number of bits indicated?
-//         uint8_t BH : 4;     //
-//     } B;
-// #pragma pack(pop)
-    uint8_t B;
+    //TODO: clean this up
+    //      probably not use the bitfields (even though they do work)
+#pragma pack(push,1)
+    struct byte {
+        uint8_t BL : 4;     //bitfield - only read the number of bits indicated?
+        uint8_t BH : 4;     //
+    } B;
+#pragma pack(pop)
+    // uint8_t B;
     memcpy(&B, data_stream, sizeof(B));
 
     // offset from current position
     Rect src_rect = {
-        // .x = -8 + B.BL,
-        // .y = -8 + B.BH,
-        .x = -8 + (B & 0xF),
-        .y = -8 + (B >> 4),
+        .x = -8 + B.BL,
+        .y = -8 + B.BH,
+        // .x = -8 + (B & 0xF),
+        // .y = -8 + (B >> 4),
         .w = 8,
         .h = 8
     };
@@ -381,8 +366,7 @@ int symmetricCopy_0x04(uint8_t* data_stream, int x_offset, int y_offset, uint8_t
     src_rect.y += y_offset;
 
 
-    //TODO: which frame is "current" and which is "new"?
-    //copy from "current" frame?
+    //copy from "current" frame
     uint8_t* current = NULL;
     if (video_buffer.pxls == video_buffer.frnt_buffer) {
         current = video_buffer.back_buffer;
@@ -425,9 +409,6 @@ int symmetricCopy_0x05(uint8_t* data_stream, int x_offset, int y_offset, uint8_t
         .w = 8,
         .h = 8
     };
-    // offset from total
-    // src_rect.x += x_offset;
-    // src_rect.y += y_offset;
 
     uint8_t* current = NULL;
     if (video_buffer.pxls == video_buffer.frnt_buffer) {
@@ -436,8 +417,7 @@ int symmetricCopy_0x05(uint8_t* data_stream, int x_offset, int y_offset, uint8_t
         current = video_buffer.frnt_buffer;
     }
 
-    //TODO: which frame is "current" and which is "new"?
-    //copy from "current" frame?
+    //copy from "current" frame
     Rect buff_rect = {
         .x = 0,
         .y = 0,
@@ -445,7 +425,6 @@ int symmetricCopy_0x05(uint8_t* data_stream, int x_offset, int y_offset, uint8_t
         .h = 8,
     };
     BlitSurface(current, src_rect, frame_pitch, block_buff, buff_rect, buff_pitch);
-    // BlitSurface(&current[y_offset*frame_pitch + x_offset], src_rect, frame_pitch, block_buff, buff_rect, buff_pitch);
     if (mark) {
         PaintSurface(block_buff, buff_pitch, buff_rect, {255, 255, 255});
     }
@@ -471,14 +450,10 @@ int pattern_0x07(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
     };
     uint8_t B[8];
 
-    // printf("pattern 0x07: P[0]: %d P[1]: %d\n", P[0], P[1]);
-
     if (P[0] <= P[1]) {
         offset = 10;
         memcpy(B, &data_stream[2], sizeof(B));
 
-        //TODO: the docs say high order bit is left,
-        //      but it only seems to work the other way
         uint8_t mask = 1;
         for (int y = 0; y < 8; y++)
         {
@@ -510,7 +485,6 @@ int pattern_0x07(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
         // 11 11 11 11 11 11 22 22 ;
 
         int byte_index = 0;
-        // uint8_t mask = 128;
         uint8_t mask = 1;
         uint8_t mask_offset = 0;
         for (int y = 0; y < 8; y+=2)
@@ -520,7 +494,6 @@ int pattern_0x07(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
             }
             for (int x = 0; x < 8; x+=2)
             {
-                // bool pal_index = B[byte_index] & (mask >> mask_offset++);
                 bool pal_index = B[byte_index] & (mask << mask_offset++);
                 if (mask_offset >= 8) {
                     mask_offset = 0;
@@ -619,10 +592,6 @@ int pattern_0x08(uint8_t* data_stream, uint8_t* dst_buff, bool blit, bool mark)
 
             for (int y = start.y; y < start.h; y++) {
                 for (int x = start.x; x < start.w; x++) {
-                    //TODO: and again,
-                    //      apparently the bits are read from low to high
-                    //      while matching pixels from left to right
-                    // uint8_t mask = 128 >> mask_offset++;
                     uint8_t mask = 1 << mask_offset++;
                     if (mask_offset >= 8) {
                         mask_offset = 0;
@@ -676,10 +645,6 @@ int pattern_0x08(uint8_t* data_stream, uint8_t* dst_buff, bool blit, bool mark)
                 // Left & Right half
                 for (int y = 0; y < 8; y++) {
                     for (int x = start.x; x < start.w; x++) {
-                        //TODO: and again,
-                        //      apparently the bits are read from low to high
-                        //      while matching pixels from left to right
-                        // uint8_t mask = 128 >> mask_offset++;
                         uint8_t mask = 1 << mask_offset++;
                         if (mask_offset >= 8) {
                             mask_offset = 0;
@@ -738,10 +703,6 @@ int pattern_0x08(uint8_t* data_stream, uint8_t* dst_buff, bool blit, bool mark)
                 //Top & Bottom half
                 for (int y = start.y; y < start.h; y++) {
                     for (int x = 0; x < 8; x++) {
-                        //TODO: and again,
-                        //      apparently the bits are read from low to high
-                        //      while matching pixels from left to right
-                        // uint8_t mask = 128 >> mask_offset++;
                         uint8_t mask = 1 << mask_offset++;
                         if (mask_offset >= 8) {
                             mask_offset = 0;
@@ -815,10 +776,6 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
 
     uint8_t* P = pattern.P;
     uint8_t* B = pattern.B;
-    //TODO: and here we go again,
-    //      apparently the bits are read from low to high
-    //      while matching pixels from left to right
-    // uint8_t mask = 0xC0;
     uint8_t mask = 0x03;
     int mask_offset = 0;
     int byte_index = 0;
@@ -830,24 +787,15 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
         {
             for (int x = 0; x < 8; x++)
             {
-                //TODO: and again,
-                //      apparently the bits are read from low to high
-                //      while matching pixels from left to right
-                // uint8_t pal_index = B[byte_index] & mask >> mask_offset;
                 uint8_t pal_index = B[byte_index] & mask << mask_offset;
 
                 switch (mask_offset)
                 {
-                case 0:
-                    // pal_index >>= 6;
-                    break;
                 case 2:
                     pal_index >>= 2;
-                    // pal_index >>= 4;
                     break;
                 case 4:
                     pal_index >>= 4;
-                    // pal_index >>= 2;
                     break;
                 case 6:
                     pal_index >>= 6;
@@ -876,24 +824,15 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
         {
             for (int x = 0; x < 8; x+=2)
             {
-                //TODO: and again,
-                //      apparently the bits are read from low to high
-                //      while matching pixels from left to right
-                // uint8_t pal_index = B[byte_index] & mask >> mask_offset;
                 uint8_t pal_index = B[byte_index] & mask << mask_offset;
 
                 switch (mask_offset)
                 {
-                case 0:
-                    // pal_index >>= 6;
-                    break;
                 case 2:
                     pal_index >>= 2;
-                    // pal_index >>= 4;
                     break;
                 case 4:
                     pal_index >>= 4;
-                    // pal_index >>= 2;
                     break;
                 case 6:
                     pal_index >>= 6;
@@ -926,24 +865,15 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
         {
             for (int x = 0; x < 8; x+=2)
             {
-                //TODO: and again,
-                //      apparently the bits are read from low to high
-                //      while matching pixels from left to right
-                // uint8_t pal_index = B[byte_index] & mask >> mask_offset;
                 uint8_t pal_index = B[byte_index] & mask << mask_offset;
 
                 switch (mask_offset)
                 {
-                case 0:
-                    // pal_index >>= 6;
-                    break;
                 case 2:
                     pal_index >>= 2;
-                    // pal_index >>= 4;
                     break;
                 case 4:
                     pal_index >>= 4;
-                    // pal_index >>= 2;
                     break;
                 case 6:
                     pal_index >>= 6;
@@ -974,24 +904,15 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
         offset = 12;
         for (int y = 0; y < 8; y+=2) {
             for (int x = 0; x < 8; x++) {
-                //TODO: and again,
-                //      apparently the bits are read from low to high
-                //      while matching pixels from left to right
-                // uint8_t pal_index = B[byte_index] & mask >> mask_offset;
                 uint8_t pal_index = B[byte_index] & mask << mask_offset;
 
                 switch (mask_offset)
                 {
-                case 0:
-                    // pal_index >>= 6;
-                    break;
                 case 2:
                     pal_index >>= 2;
-                    // pal_index >>= 4;
                     break;
                 case 4:
                     pal_index >>= 4;
-                    // pal_index >>= 2;
                     break;
                 case 6:
                     pal_index >>= 6;
@@ -1058,9 +979,7 @@ int pattern_0x0A(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
     #pragma pack(pop)
     memcpy(&pattern, data_stream, sizeof(pattern));
 
-    //TODO: apparently this one also processes bits from low order to high
-    //      matching to pixels from left to right
-    uint8_t mask    = 0x03;// 0xC0;
+    uint8_t mask    = 0x03;
     int mask_offset = 0;
     int B_index     = 0;
     if (data_stream[0] <= data_stream[1]) {
@@ -1099,22 +1018,14 @@ int pattern_0x0A(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
             {
                 for (int x = start.x; x < start.w; x++)
                 {
-                //TODO: and again,
-                //      apparently the bits are read from low to high
-                //      while matching pixels from left to right
                     uint8_t P_index = B[B_index] & (mask << mask_offset);
                     switch (mask_offset)
                     {
-                    case 0:
-                        // P_index >>= 6;
-                        break;
                     case 2:
                         P_index >>= 2;
-                        // P_index >>= 4;
                         break;
                     case 4:
                         P_index >>= 4;
-                        // P_index >>= 2;
                         break;
                     case 6:
                         P_index >>= 6;
@@ -1173,19 +1084,13 @@ int pattern_0x0A(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
                 for (int x = start.x; x < start.w; x++)
                 {
                     uint8_t P_index = B[B_index] & (mask << mask_offset);
-                    // uint8_t P_index = B[B_index] & (mask >> mask_offset);
                     switch (mask_offset)
                     {
-                    case 0:
-                        // P_index >>= 6;
-                        break;
                     case 2:
                         P_index >>= 2;
-                        // P_index >>= 4;
                         break;
                     case 4:
                         P_index >>= 4;
-                        // P_index >>= 2;
                         break;
                     case 6:
                         P_index >>= 6;
@@ -1358,9 +1263,7 @@ int solid_frame_0x0E(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buf
     };
 
     palette color = video_buffer->pal[pal_index];
-    // printf("pal_index: %d  RGB %d%d%d\n", pal_index, color.r, color.g, color.b);
 
-    //TODO: paint a buffer first, then blit
     PaintSurface(block_buff, block_pitch, buff_rect, color);
     if (mark) {
         PaintSurface(block_buff, block_pitch, buff_rect, {255, 255, 255});
@@ -1538,7 +1441,7 @@ void parse_video_data(uint8_t* buffer)
     //  set in the first 14 bytes (might be 16 in later encodes) of the actual
     //  frame(?) data, not when you go to blit the buffer to the render engine
     // swap buffers
-    #define SWAP_BUFFER_BIT         (1)
+    #define SWAP_BUFFER_BIT         (0x01)
     uint16_t flags = *(uint16_t*)&buffer[12];
     if (flags & SWAP_BUFFER_BIT) {
         if (video_buffer.pxls == video_buffer.frnt_buffer) {
@@ -1555,8 +1458,8 @@ void parse_video_data(uint8_t* buffer)
     // x_offset & y_offset == offset into the framebuffer in pixels
     int x_offset    = 0;
     int y_offset    = 0;
-    uint8_t mask    = video_buffer.encode_bits;
-    int data_offset = video_buffer.data_offset_init;
+    uint8_t mask    = video_buffer.encode_bits;         //debug global to see which bits go first
+    int data_offset = video_buffer.data_offset_init;    //debug global to find correct offset
     int frame_pitch = video_buffer.pitch;
     for (int i = 0; i < video_buffer.map_size*2; i++)
     {
