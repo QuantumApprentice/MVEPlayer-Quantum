@@ -418,7 +418,7 @@ uint8_t* block_select(uint8_t* selected, float scale, ImVec2 pos, bool show)
 
 void show_palette(ImVec2 pos)
 {
-    ImGui::SetCursorPos(pos);
+    ImGui::SetCursorPos(ImVec2({pos.x, pos.y + 10}));
     for (int y = 0; y < 32; y++)
     {
         ImGui::SetCursorPosX(pos.x+250);
@@ -491,22 +491,25 @@ bool show_block_info(ImVec2 pos, float scale)
 void video_player()
 {
     static bool file_loaded     = false;
-    static bool render_on_chunk = false;
+    static bool render_on_chunk = false;        //TODO: do I want this anymore? currently unused
+    static ImVec2 pos = ImGui::GetCursorPos();
+    static Chunk chunk;
+    static bool pause = false;
+    static int which_file = 0;
+    static float speed = 1.0f;
 
     if (ImGui::Checkbox("VSync", &enable_vsync)) {
         glfwSwapInterval(enable_vsync); // Enable vsync
     }
     ImGui::SameLine();
-    ImGui::Checkbox("Render on every chunk (not on frame)", &render_on_chunk);
+    ImGui::PushItemWidth(135);
+    ImGui::SliderFloat("Speed", &speed, 0.0f, 10.0f, "%.1f");
+    ImGui::PopItemWidth();
 
     static float scale = 1;                        //video_buffer.scale;
     ImGui::PushItemWidth(200);
     ImGui::DragFloat("Zoom", &scale, .01, 0, 3.0);
 
-    static ImVec2 pos = ImGui::GetCursorPos();
-    static Chunk chunk;
-    static bool pause = false;
-    static int which_file = 0;
 
     struct file_list {
         char filename[32];
@@ -564,7 +567,6 @@ void video_player()
     //buttons
     bool rerender = false;
     rerender = filter_buttons();
-
     if (ImGui::Button("re-render frame")) {
         rerender = true;
     }
@@ -610,49 +612,47 @@ void video_player()
         }
     }
 
-    if (pause && chunk.info.type == CHUNK_video) {
+    if (!file_loaded) {
+        ImGui::SetCursorPos({pos.x + 400, pos.y-20});
+        ImGui::Text("File closed");
+    }
+
+
+    timer_struct mve_timer = video_buffer.timer;
+    uint64_t curr_time = io_nano_time();
+    static uint64_t next_frame;
+    if (!speed || curr_time <= next_frame || pause && chunk.info.type == CHUNK_video) {
         if (step) {
             // bypass the return for one click (should be same as one frame)
         } else {
             return;
         }
     }
+    int frame_time = mve_timer.rate*mve_timer.subdivision*1000;
+    next_frame = curr_time + frame_time / speed;
 
-    if (file_loaded) {
-        while (file_loaded)
-        {
-            if (chunk.chunk) {
-                free(chunk.chunk);
-                chunk.chunk = NULL;
-            }
 
-            chunk = read_chunk(video_buffer.fileptr);
-            bool render_frame = parse_chunk(chunk);
-            if (chunk.info.type == CHUNK_end) {
-                if (video_buffer.fileptr) {
-                    fclose(video_buffer.fileptr);
-                    video_buffer.fileptr = NULL;
-                }
-                file_loaded = false;
-            }
 
-            if (render_frame || render_on_chunk) {
-
-                static uint64_t last_frame;
-                uint64_t curr_time = io_nano_time();
-                timer_struct mve_timer = video_buffer.timer;
-                int frame_time = mve_timer.rate * mve_timer.subdivision *1000;
-                while (curr_time <= (last_frame + frame_time)) {
-                    curr_time = io_nano_time();
-                }
-                last_frame = curr_time;
-
-                break;
-            }
+    while (file_loaded)
+    {
+        if (chunk.chunk) {
+            free(chunk.chunk);
+            chunk.chunk = NULL;
         }
-    } else {
-        ImGui::SetCursorPos({pos.x + 400, pos.y-20});
-        ImGui::Text("File closed");
+
+        chunk = read_chunk(video_buffer.fileptr);
+        bool render_frame = parse_chunk(chunk);
+        if (chunk.info.type == CHUNK_end) {
+            if (video_buffer.fileptr) {
+                fclose(video_buffer.fileptr);
+                video_buffer.fileptr = NULL;
+            }
+            file_loaded = false;
+        }
+
+        if (render_frame || render_on_chunk) {
+            break;
+        }
     }
 }
 
