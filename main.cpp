@@ -36,6 +36,7 @@ Chunk read_chunk(FILE* fileptr);
 bool parse_chunk(Chunk chunk);
 int get_filesize(FILE* fileptr);
 void video_player();
+bool show_block_info(ImVec2 pos, float scale);
 
 
 
@@ -389,29 +390,26 @@ uint8_t* block_select(uint8_t* selected, float scale, ImVec2 pos, bool show)
                 //     selected[cur_block] ^= 1;
                 // }
             }
+
+            ImGuiIO& io = ImGui::GetIO();
+            float mouse_x = io.MousePos.x - pos.x - 400;
+            float mouse_y = io.MousePos.y - pos.y;
+
+            if (mouse_x >= 0 && mouse_y >= 0 && video_buffer.map_stream) {
+                int block_num = (int)(mouse_y/(8*scale))*video_buffer.block_w + mouse_x/8/scale;
+                int block_enc = video_buffer.map_stream[block_num/2] & (0x0f << ((block_num & 0x01)*4));
+                ImGui::SetItemTooltip(
+                    "Mouse x: %g y: %g\n"
+                    "Block #%d\n"
+                    "Encode type: %02x\n"
+                    ,
+                    mouse_x, mouse_y,
+                    block_num, block_enc
+                );
+            }
             ImGui::PopID();
         }
     }
-
-
-    // ImGuiIO& io = ImGui::GetIO();
-    // if (ImGui::BeginItemTooltip())
-    // {
-    //     float region_sz = 32.0f;
-    //     float region_x = io.MousePos.x - pos.x - region_sz * 0.5f;
-    //     float region_y = io.MousePos.y - pos.y - region_sz * 0.5f;
-    //     float zoom = 4.0f;
-    //     if (region_x < 0.0f) { region_x = 0.0f; }
-    //     else if (region_x > my_tex_w - region_sz) { region_x = my_tex_w - region_sz; }
-    //     if (region_y < 0.0f) { region_y = 0.0f; }
-    //     else if (region_y > my_tex_h - region_sz) { region_y = my_tex_h - region_sz; }
-    //     ImGui::Text("Min: (%.2f, %.2f)", region_x, region_y);
-    //     ImGui::Text("Max: (%.2f, %.2f)", region_x + region_sz, region_y + region_sz);
-    //     ImVec2 uv0 = ImVec2((region_x) / my_tex_w, (region_y) / my_tex_h);
-    //     ImVec2 uv1 = ImVec2((region_x + region_sz) / my_tex_w, (region_y + region_sz) / my_tex_h);
-    //     ImGui::ImageWithBg(my_tex_id, ImVec2(region_sz * zoom, region_sz * zoom), uv0, uv1, ImVec4(0.0f, 0.0f, 0.0f, 1.0f));
-    //     ImGui::EndTooltip();
-    // }
 
     return selected;
 }
@@ -455,7 +453,6 @@ void plot_chunk_usage()
 
 bool show_block_info(ImVec2 pos, float scale)
 {
-
     ImGuiIO& io = ImGui::GetIO();
     float mouse_x, mouse_y;
     if (io.MousePos.x > (pos.x + 400) && io.MousePos.x < (pos.x + 400 + video_buffer.render_w*scale)
