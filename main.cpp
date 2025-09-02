@@ -709,8 +709,10 @@ bool parse_chunk(Chunk chunk)
         break;
     case CHUNK_end:
         printf("end of file\n");
-        // fseek(fileptr, info.size, SEEK_CUR);
-        // fclose(fileptr);
+        if (video_buffer.fileptr) {
+            fclose(video_buffer.fileptr);
+            video_buffer.fileptr = NULL;
+        }
         video_buffer.fileptr = NULL;
         //TODO: nothing?
         break;

@@ -8,8 +8,6 @@
 #include <stdlib.h>
 #include <memory.h>
 
-bool debug = false;
-
 #pragma pack(push, 1)
 struct videoinit_info
 {
@@ -41,9 +39,9 @@ void init_video_mode(uint8_t* buffer)
 {
     videoinit_info initinfo;
     memcpy(&initinfo, buffer, sizeof(initinfo));
-    if (debug) {
-        printf("pretty sure these are window dimensions - w: %d, h: %d, f: %04x\n", initinfo.w, initinfo.h, initinfo.f);
-    }
+#ifdef DEBUG
+    printf("pretty sure these are window dimensions - w: %d, h: %d, f: %04x\n", initinfo.w, initinfo.h, initinfo.f);
+#endif
     video_buffer.window_w = initinfo.w;
     video_buffer.window_h = initinfo.h;
 }
@@ -51,41 +49,56 @@ void init_video_mode(uint8_t* buffer)
 void init_video_buffer(uint8_t* buffer, uint8_t version)
 {
     int buff_size = 0;
+    int block_w   = 0;
+    int block_h   = 0;
     switch (version)
     {
     case 0:{
         videoinit_buffer_v0 vbuff0;
         memcpy(&vbuff0, buffer, sizeof(vbuff0));
         buff_size = 2* vbuff0.w * vbuff0.h;
+        block_w = vbuff0.w;
+        block_h = vbuff0.h;
         break;}
     case 1:{
         videoinit_buffer_v1 vbuff1;
         memcpy(&vbuff1, buffer, sizeof(vbuff1));
         buff_size = 2* vbuff1.w * vbuff1.h * vbuff1.count;
+        block_w = vbuff1.w;
+        block_h = vbuff1.h;
         break;}
     case 2:{
         videoinit_buffer_v2 vbuff2;
         memcpy(&vbuff2, buffer, sizeof(vbuff2));
         buff_size = 2* vbuff2.w * vbuff2.h * vbuff2.count;
-
-        if (debug) {
-            printf("vbuff w: %d, vbuff h, %d, vbuff count: %d\n", vbuff2.w, vbuff2.h, vbuff2.count);
-        }
-
-        video_buffer.block_w   = vbuff2.w;
-        video_buffer.block_h   = vbuff2.h;
-        video_buffer.buff_size = buff_size; //what is this buff_size actually for?
-        video_buffer.render_w  = vbuff2.w*8;
-        video_buffer.render_h  = vbuff2.h*8;
-        video_buffer.pitch     = vbuff2.w * 8 * 3;
-
+        block_w = vbuff2.w;
+        block_h = vbuff2.h;
+#ifdef DEBUG
+        printf("vbuff w: %d, vbuff h, %d, vbuff count: %d\n", vbuff2.w, vbuff2.h, vbuff2.count);
+#endif
         break;}
     default:
-        printf("wtf is going on here?\n");
+        printf("Undocumented version for init_video_buffer() found: %d\n", version);
         break;
     }
-    if (debug) {
+#ifdef DEBUG
         printf("video buffer size: %d\n", buff_size);
+#endif
+
+    video_buffer.block_w   = block_w;
+    video_buffer.block_h   = block_h;
+    video_buffer.buff_size = buff_size; //what is this buff_size actually for?
+    video_buffer.render_w  = block_w*8;
+    video_buffer.render_h  = block_h*8;
+    video_buffer.pitch     = block_w * 8 * 3;
+
+    if (video_buffer.frnt_buffer) {
+        free(video_buffer.frnt_buffer);
+        video_buffer.frnt_buffer = NULL;
+    }
+    if (video_buffer.back_buffer) {
+        free(video_buffer.back_buffer);
+        video_buffer.back_buffer = NULL;
     }
 
     video_buffer.frnt_buffer = (uint8_t*)calloc(1,video_buffer.render_w*video_buffer.render_h*3);
@@ -104,9 +117,9 @@ void init_palette(uint8_t* buffer)
     PAL_Info pal_info;
     memcpy(&pal_info, buffer, sizeof(pal_info));
 
-    if (debug) {
-        printf("pal start: %d, pal count: %d\n", pal_info.start, pal_info.count);
-    }
+#ifdef DEBUG
+    printf("pal start: %d, pal count: %d\n", pal_info.start, pal_info.count);
+#endif
     int i = 0;
     if (pal_info.start != 0) {
         while (i < pal_info.start)
@@ -124,14 +137,13 @@ void init_palette(uint8_t* buffer)
         video_buffer.pal[pal_info.start + i].b = buffer[i*3 + 4 + 2] << 2;
     }
 
-
-    if (debug) {
-        printf("palette colors:\n");
-        for (int i = 0; i < pal_info.count + pal_info.start; i++)
-        {
-            printf("i:%d r:%d g:%d b:%d\n", i, video_buffer.pal[i].r, video_buffer.pal[i].g, video_buffer.pal[i].b);
-        }
+#ifdef DEBUG
+    printf("palette colors:\n");
+    for (int i = 0; i < pal_info.count + pal_info.start; i++)
+    {
+        printf("i:%d r:%d g:%d b:%d\n", i, video_buffer.pal[i].r, video_buffer.pal[i].g, video_buffer.pal[i].b);
     }
+#endif
 }
 
 void init_video(uint8_t* chunk, chunkinfo info)
@@ -153,9 +165,9 @@ void create_timer(uint8_t* buffer)
 {
     memcpy(&video_buffer.timer, buffer, sizeof(video_buffer.timer));
 
-    if (debug) {
-        printf("frame rate: %d, subdivision: %d\n", video_buffer.timer.rate, video_buffer.timer.subdivision);
-    }
+#ifdef DEBUG
+    printf("frame rate: %d, subdivision: %d\n", video_buffer.timer.rate, video_buffer.timer.subdivision);
+#endif
 }
 
 void send_buffer_to_display(uint8_t* buffer)
@@ -213,6 +225,7 @@ void parse_decoding_map(uint8_t* buffer, int size)
 }
 
 //TODO: delete data_stream (not used)
+//offset = 0;
 int blockCopy_0x00(uint8_t* data_stream, uint8_t* dst_buff, int offset_x, int offset_y, bool blit, bool mark)
 {
     uint8_t* block_buff = video_buffer.block_buffer;
@@ -252,6 +265,7 @@ int blockCopy_0x00(uint8_t* data_stream, uint8_t* dst_buff, int offset_x, int of
     return 0;
 }
 
+//offset = 1;
 int cornerCopy_0x02(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* dst_buff, bool blit, bool mark)
 {
     uint8_t* block_buff = video_buffer.block_buffer;
@@ -281,7 +295,7 @@ int cornerCopy_0x02(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* d
         src_rect.y =   8 + ((B-56) /29);
     }
 
-    // "new" frame is video_buffer.pxls
+    // "new" frame is dst_buff
     // copy from "new" frame
     BlitSurface(dst_buff, src_rect, frame_pitch, block_buff, buff_rect, buff_pitch);
     if (mark) {
@@ -294,6 +308,7 @@ int cornerCopy_0x02(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* d
     return 1;
 }
 
+//offset = 1;
 int cornerCopy_0x03(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* dst_buff, bool blit, bool mark)
 {
     uint8_t* block_buff = video_buffer.block_buffer;
@@ -335,6 +350,7 @@ int cornerCopy_0x03(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* d
     return 1;
 }
 
+//offset = 1;
 int symmetricCopy_0x04(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* dst_buff, bool blit, bool mark)
 {
     uint8_t* block_buff = video_buffer.block_buffer;
@@ -391,6 +407,7 @@ int symmetricCopy_0x04(uint8_t* data_stream, int x_offset, int y_offset, uint8_t
     return 1;
 }
 
+//offset = 2;
 int symmetricCopy_0x05(uint8_t* data_stream, int x_offset, int y_offset, uint8_t* dst_buff, bool blit, bool mark)
 {
     uint8_t* block_buff = video_buffer.block_buffer;
@@ -435,6 +452,7 @@ int symmetricCopy_0x05(uint8_t* data_stream, int x_offset, int y_offset, uint8_t
     return 2;
 }
 
+//offset = 10 or 4;
 int pattern_0x07(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool blit, bool mark)
 {
     int offset = 0;
@@ -528,6 +546,7 @@ int pattern_0x07(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
     return offset;
 }
 
+//offset = 16 or 12;
 int pattern_0x08(uint8_t* data_stream, uint8_t* dst_buff, bool blit, bool mark)
 {
     int offset = 0;
@@ -757,6 +776,7 @@ int pattern_0x08(uint8_t* data_stream, uint8_t* dst_buff, bool blit, bool mark)
     return offset;
 }
 
+//offset = 20 or 8 or 12 or 12;
 int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool blit, bool mark)
 {
     int offset = 0;
@@ -787,7 +807,7 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
         {
             for (int x = 0; x < 8; x++)
             {
-                uint8_t pal_index = B[byte_index] & mask << mask_offset;
+                uint8_t pal_index = B[byte_index] & (mask << mask_offset);
 
                 switch (mask_offset)
                 {
@@ -824,7 +844,7 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
         {
             for (int x = 0; x < 8; x+=2)
             {
-                uint8_t pal_index = B[byte_index] & mask << mask_offset;
+                uint8_t pal_index = B[byte_index] & (mask << mask_offset);
 
                 switch (mask_offset)
                 {
@@ -865,7 +885,7 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
         {
             for (int x = 0; x < 8; x+=2)
             {
-                uint8_t pal_index = B[byte_index] & mask << mask_offset;
+                uint8_t pal_index = B[byte_index] & (mask << mask_offset);
 
                 switch (mask_offset)
                 {
@@ -904,7 +924,7 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
         offset = 12;
         for (int y = 0; y < 8; y+=2) {
             for (int x = 0; x < 8; x++) {
-                uint8_t pal_index = B[byte_index] & mask << mask_offset;
+                uint8_t pal_index = B[byte_index] & (mask << mask_offset);
 
                 switch (mask_offset)
                 {
@@ -954,6 +974,7 @@ int pattern_0x09(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
     return offset;
 }
 
+//offset = 32 or 24;
 int pattern_0x0A(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool blit, bool mark)
 {
     int offset = 0;
@@ -1130,6 +1151,7 @@ int pattern_0x0A(uint8_t* data_stream, video* video, uint8_t* dst_buff, bool bli
     return offset;
 }
 
+//offset = 64;
 int raw_pixels_0x0B(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff, bool blit, bool mark)
 {
     uint8_t* block_buff = video_buffer->block_buffer;
@@ -1166,6 +1188,7 @@ int raw_pixels_0x0B(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff
     return 64;
 }
 
+//offset = 16;
 int raw_pixels_0x0C(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff, bool blit, bool mark)
 {
     uint8_t* block_buff = video_buffer->block_buffer;
@@ -1206,6 +1229,7 @@ int raw_pixels_0x0C(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff
     return 16;
 }
 
+//offset = 4;
 int raw_pixels_0x0D(uint8_t* data_stream, video*video_buffer, uint8_t* dst_buff, bool blit, bool mark)
 {
     uint8_t* block_buff = video_buffer->block_buffer;
@@ -1247,6 +1271,7 @@ int raw_pixels_0x0D(uint8_t* data_stream, video*video_buffer, uint8_t* dst_buff,
     return 4;
 }
 
+//offset = 1;
 //set the whole 8x8 pixels a solid color
 int solid_frame_0x0E(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buff, bool blit, bool mark)
 {
@@ -1275,6 +1300,7 @@ int solid_frame_0x0E(uint8_t* data_stream, video* video_buffer, uint8_t* dst_buf
     return 1;
 }
 
+//offset = 2;
 int dithered_0x0F(uint8_t* data_stream, video*video, uint8_t* dst_buff, bool blit, bool mark)
 {
     uint8_t* block_buff = video_buffer.block_buffer;
@@ -1331,13 +1357,13 @@ int parse_video_encode(uint8_t op, uint8_t* data_stream, uint8_t* frame_buffer, 
     bool* blit_mark  = video_buffer.blit_marker;
     int* data_offset = video_buffer.data_offset;
 
-    if (debug) {
-        if (y_offset >= 16 && y_offset < 32) {
-            if (x_offset >= 8 && x_offset < 16) {
-                printf("this opdcode %0x\n", op);
-            }
+#ifdef DEBUG
+    if (y_offset >= 16 && y_offset < 32) {
+        if (x_offset >= 8 && x_offset < 16) {
+            printf("this opdcode %0x\n", op);
         }
     }
+#endif
 
     int offset = 0;
     switch (op)
@@ -1428,14 +1454,11 @@ void parse_video_data(uint8_t* buffer)
 
     int encode_type_previous_frame[0xf];
     int encode_type_per_frame[0xf];
-    if (debug) {
-        for (int i = 0; i <= 0xF; i++)
-        {
-            encode_type_previous_frame[i] = video_buffer.encode_type[i];
-        }
-        // memset(video_buffer.frnt_buffer, 0, video_buffer.render_w*video_buffer.render_h*3);
-        // memset(video_buffer.back_buffer, 0, video_buffer.render_w*video_buffer.render_h*3);
+#ifdef DEBUG
+    for (int i = 0; i <= 0xF; i++) {
+        encode_type_previous_frame[i] = video_buffer.encode_type[i];
     }
+#endif
 
     //apparently the video buffers are only swapped based on a single bit flag
     //  set in the first 14 bytes (might be 16 in later encodes) of the actual
@@ -1469,7 +1492,6 @@ void parse_video_data(uint8_t* buffer)
         }
         mask = ~mask;
 
-        // printf("enc: %0x  data_offset: %d\n", enc, data_offset);
         data_offset += parse_video_encode(
                         enc,
                         &data_stream[data_offset],
@@ -1484,10 +1506,9 @@ void parse_video_data(uint8_t* buffer)
             y_offset += 8;
         }
     }
-    if (debug) {
-        for (int i = 0; i <= 0xf; i++)
-        {
-            encode_type_per_frame[i] = video_buffer.encode_type[i] - encode_type_previous_frame[i];
-        }
+#ifdef DEBUG
+    for (int i = 0; i <= 0xf; i++) {
+        encode_type_per_frame[i] = video_buffer.encode_type[i] - encode_type_previous_frame[i];
     }
+#endif
 }
