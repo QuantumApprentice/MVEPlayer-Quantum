@@ -24,13 +24,17 @@ struct timer_struct {
 #pragma pack(pop)
 
 struct video {
+    //files
     bool file_drop_frame = false;
     char* filename = NULL;
     FILE* fileptr = NULL;
+    //video
     uint8_t* frnt_buffer = NULL;
     uint8_t* back_buffer = NULL;
     uint8_t* pxls = NULL;
 
+    //audio
+    uint8_t* audio_buff;
     int pitch;
     int buff_size = 0;
 

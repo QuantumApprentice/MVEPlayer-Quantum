@@ -595,28 +595,28 @@ int pattern_0x08(uint8_t* data_stream, uint8_t* dst_buff, bool blit, bool mark)
             {
             case 1:
                 start.y = 4;        // q==1 => x = 0
-                start.h = 8;        //         y = 4
+                // start.h = 8;        //         y = 4
                 break;
             case 2:
                 start.x = 4;        // q==2 => x = 4
-                start.w = 8;        //         y = 0
+                // start.w = 8;        //         y = 0
                 break;
             case 3:
                 start.x = 4;        // q==3 => x = 4
                 start.y = 4;        //         y = 4
-                start.w = 8;
-                start.h = 8;
+                // start.w = 8;
+                // start.h = 8;
                 break;
             }
 
-            for (int y = start.y; y < start.h; y++) {
-                for (int x = start.x; x < start.w; x++) {
+            for (int y = start.y; y < start.y+start.h; y++) {
+                for (int x = start.x; x < start.x+start.w; x++) {
                     uint8_t mask = 1 << mask_offset++;
                     if (mask_offset >= 8) {
                         mask_offset = 0;
                     }
                     bool indx;
-                    if (y < start.h-2) {
+                    if (y < start.y+start.h-2) {
                         indx = block.quad[q].B0 & mask;
                     } else {
                         indx = block.quad[q].B1 & mask;

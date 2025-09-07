@@ -30,6 +30,10 @@ target_compile_definitions(
   ${EXE_NAME}
   PUBLIC LINUX
 )
+find_package(ALSA)
+target_link_libraries(QMVEPlayer_Quantum
+    PRIVATE ALSA::ALSA
+)
 endif()
 
 
