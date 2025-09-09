@@ -1,6 +1,7 @@
 #pragma once
 #include <stdio.h>
 #include <stdint.h>
+#include <alsa/asoundlib.h>
 
 struct chunkinfo {
     uint16_t size;
@@ -34,9 +35,16 @@ struct video {
     uint8_t* pxls = NULL;
 
     //audio
-    uint8_t* audio_buff;
+    uint8_t* audio_buff = NULL;
     int pitch;
-    int buff_size = 0;
+    int buff_size     = 0;
+    uint32_t rate     = 48000;
+    uint32_t channels = 2;
+    uint32_t seconds  = 2;
+    //ALSA
+    snd_pcm_t* pcm_handle;
+    snd_pcm_uframes_t frames;
+
 
     int map_size;
     uint8_t* map_stream = NULL;
