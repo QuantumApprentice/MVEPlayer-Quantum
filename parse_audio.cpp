@@ -105,32 +105,12 @@ void init_audio(uint8_t* chunk)
     //wait, does this assign something to frames?
     snd_pcm_hw_params_get_period_size(params, &video_buffer.frames, 0);
     //get size to allocate
-    int buff_size = video_buffer.frames * video_buffer.channels * 2; //2 is the sample size?
+    // int buff_size = video_buffer.frames * video_buffer.channels * 2*2; //2 is the sample size?
+    int buff_size = 3200*2*2;
     //allocate buffer
     if (!video_buffer.audio_buff) {
-        video_buffer.audio_buff = (uint8_t*)calloc(buff_size, 1);
+        video_buffer.audio_buff = (uint16_t*)calloc(buff_size, 1);
     }
-    uint16_t* audio_buff    = (uint16_t*)video_buffer.audio_buff;
-    int middle_C        = 261;  //Hz
-    int square_wave_ctr = 0;
-    int square_wave_prd = video_buffer.rate/middle_C;
-    #define PI 3.141592653589793
-    // for (int i = 0; i < buff_size/2; i++)
-    // {
-    //     int16_t sample = (int16_t)(sin(2*PI*middle_C*((double)i/video_buffer.rate))*1600);
-    //     audio_buff[i] = sample;
-    // }
-
-
-
-    // Eskemina's example
-    for (int i = 0; i < buff_size/2; i++) {
-        double t = (double)i / video_buffer.rate;
-        int16_t sample = (int16_t)(sin(2 * PI * middle_C * t) * 1600);
-        audio_buff[i] = sample;
-    }
-
-
 
     snd_pcm_hw_params_get_period_time(params, &tmp, NULL);
 
@@ -148,25 +128,43 @@ void parse_audio_frame(uint8_t* buffer)
     audio_frame frame;
     memcpy(&frame, buffer, sizeof(frame));
 
-    uint16_t* audio_buff    = (uint16_t*)video_buffer.audio_buff;
-    // for (int loops = (video_buffer.seconds * 1000000); loops > 0; loops--)
-    // {
-        // end of file check here
-        //not doing this yet because it should be handled elsewhere
-        //if (EOF) {return};
-
-        uint32_t pcm = snd_pcm_writei(video_buffer.pcm_handle, audio_buff, video_buffer.frames);
-
-        if (pcm == -EPIPE) {    // Broken pipe (I think this means its not working?)
-            printf("xRUN.\n");
-            snd_pcm_prepare(video_buffer.pcm_handle);    //if pipe is broken, then wtf is this doing?
-        } else
-        if (pcm < 0) {
-            printf("ALSA Audio ERROR: Can't write to PCM device. %s\n", snd_strerror(pcm));
-        }
+    // long r;
+    // int frame_bytes = (snd_pcm_format_physical_width(format) / 8) * channels;
+    // while (len > 0) {
+    //     r = snd_pcm_writei(handle, buf, len);
+    //     if (r == -EAGAIN)
+    //         continue;
+    //     // printf("write = %li\n", r);
+    //     if (r < 0)
+    //         return r;
+    //     // showstat(handle, 0);
+    //     buf += r * frame_bytes;
+    //     len -= r;
+    //     *frames += r;
     // }
 
-    // snd_pcm_drain(video_buffer.pcm_handle);
-    // snd_pcm_close(video_buffer.pcm_handle);
+
+
+    int16_t* audio_buff = (int16_t*)video_buffer.audio_buff;
+    int32_t remainder   = 3200;    //video_buffer.frames;
+    // while (remainder > 0) {
+
+        int32_t offset = snd_pcm_writei(video_buffer.pcm_handle, audio_buff, remainder);
+
+        if (offset < 0) {
+            if (offset == -EPIPE) {    // Broken pipe (I think this means its not working?)
+                printf("Buffer Underrun.\n");
+                snd_pcm_prepare(video_buffer.pcm_handle);    //if pipe is broken, then wtf is this doing?
+            }
+            snd_pcm_recover(video_buffer.pcm_handle, offset, 1);
+            printf("ALSA Audio ERROR: Can't write to PCM device. %s\n", snd_strerror(offset));
+            // continue;
+        }
+
+
+        audio_buff += offset*2;
+        remainder  -= offset;
+    // }
+
 
 }

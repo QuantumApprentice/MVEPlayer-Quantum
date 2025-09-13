@@ -451,6 +451,44 @@ void plot_chunk_usage()
     ImGui::PlotLines("###", values, 100, 0, overlay, -1.0f, 10.0f, ImVec2(0, 80.0f));
 }
 
+void plot_audio_waveform()
+{
+    int buff_size = video_buffer.frames * video_buffer.channels * 2; //2 is the sample size?
+    static float values[2048] = {};
+    static int values_offset = 0;
+    // int index = video_buffer.frame_count % 100;
+    int16_t* audio_buff = (int16_t*)video_buffer.audio_buff;
+
+
+
+    static int frequency        = 261;  //Hz //middle C
+    if (ImGui::DragInt("Frequency", &frequency)) {
+        int16_t* audio_buff = (int16_t*)video_buffer.audio_buff;
+        int square_wave_ctr = 0;
+        int square_wave_prd = video_buffer.rate/frequency;
+
+        // Eskemina's example
+        #define PI 3.141592653589793
+        for (int i = 0; i < buff_size/2; i++) {
+            double t = (double)i / video_buffer.rate;
+            int16_t sample = (int16_t)(sin(2 * PI * frequency * t) * 1600);
+            audio_buff[i] = sample;
+        }
+    }
+
+
+    if (audio_buff) {
+        for (int i = 0; i < 2048; i++)
+        {
+            values[i] = audio_buff[i];
+        }
+    }
+
+    // ImGui::PlotLines("waveform", values, 2048, 0, "test", -2000.0f, 2000.0f, ImVec2(0, 80.0f));
+    ImGui::PlotHistogram("waveform", values, 2048, 0, "test", -2000.0f, 2000.0f, ImVec2({0, 80.0f}));
+
+}
+
 bool show_block_info(ImVec2 pos, float scale)
 {
     ImGuiIO& io = ImGui::GetIO();
@@ -574,6 +612,7 @@ void video_player()
     bool show = show_block_info(pos, scale);
 
     plot_chunk_usage();
+    plot_audio_waveform();
 
     if (rerender) {
         parse_chunk(chunk);
@@ -686,12 +725,9 @@ bool parse_chunk(Chunk chunk)
     case CHUNK_init_audio:
         printf("initing audio\n");
         init_audio(chunk.chunk);
-        // fseek(fileptr, info.size, SEEK_CUR);
-        //TODO: init the flipping audio
         break;
     case CHUNK_audio:
         printf("skipping processing audio\n");
-        // fseek(fileptr, info.size, SEEK_CUR);
         //TODO: process the audio
         break;
     case CHUNK_init_video:
@@ -704,7 +740,9 @@ bool parse_chunk(Chunk chunk)
         break;
     case CHUNK_shutdown:
         printf("shutting down\n");
-        // fseek(fileptr, info.size, SEEK_CUR);
+        snd_pcm_drain(video_buffer.pcm_handle);
+        snd_pcm_close(video_buffer.pcm_handle);
+        free(video_buffer.audio_buff);
         //TODO: handle shutdown
         break;
     case CHUNK_end:

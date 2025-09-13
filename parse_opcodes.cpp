@@ -35,7 +35,9 @@ void parse_opcode(opcodeinfo op, uint8_t* buffer)
         send_buffer_to_display(buffer);
         break;
     case 0x08:  //data: fall through to 0x09 (both are audio)
+        printf("parsing  opcode 0x08: audio data\n");
     case 0x09:  //silence (but processes data instead?)
+        printf("parsing  opcode 0x09: audio silence\n");
         parse_audio_frame(buffer);
         break;
     case 0x0A:  //Initialize Video Mode
@@ -60,6 +62,7 @@ void parse_opcode(opcodeinfo op, uint8_t* buffer)
         printf("skipping opcode 0x10: Unknown (uses 3 data streams?)\n");
         break;
     case 0x11:
+        printf("parsing  opcode 0x11: parse video data\n");
         parse_video_data(buffer);
         break;
     case 0x12:
