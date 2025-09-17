@@ -270,7 +270,7 @@ bool filter_buttons()
         }
     }
 
-    for (int i = 0; i <= 0xF; i++)
+    for (int i = 0; i <= 0x15; i++)
     {
         ImGui::PushID(i);
         if (i == 1 || i == 6) {
@@ -282,19 +282,24 @@ bool filter_buttons()
         ImGui::PopItemWidth();
         ImGui::SameLine();
 #endif
-        if (ImGui::Button(blit_marker[i] ? "Unmark" : "Mark")) {
-            blit_marker[i] = !blit_marker[i];
-        }
-        ImGui::SameLine();
+
         char button[10];
-        snprintf(button, 10, "0x%x", i);
+        snprintf(button, 10, "0x%02x", i);
         if (ImGui::Button(button)) {
             allow_blit[i] = !allow_blit[i];
         }
         ImGui::SameLine();
         ImGui::Text(allow_blit[i] ? "On" : "Off");
         ImGui::SameLine();
-        ImGui::Text("%d", video_buffer.encode_type[i]);
+        ImGui::Text("op:% 4d", video_buffer.opcode_type[i]);
+        if (i <= 0xf) {
+            ImGui::SameLine();
+            ImGui::Text("en:% 7d", video_buffer.encode_type[i]);
+            ImGui::SameLine();
+            if (ImGui::Button(blit_marker[i] ? "Unmark" : "Mark")) {
+               blit_marker[i] = !blit_marker[i];
+            }
+        }
 
         if (i == 1 || i == 6) {
             ImGui::EndDisabled();
@@ -453,39 +458,31 @@ void plot_chunk_usage()
 
 void plot_audio_waveform()
 {
-    int buff_size = video_buffer.frames * video_buffer.channels * 2; //2 is the sample size?
-    static float values[2048] = {};
+    int buff_size = video_buffer.frames * video_buffer.audio_channels * 2; //2 is the sample size?
+    static float left[4096] = {};
+    static float rght[4096] = {};
+    // static float values = NULL;
+    // if (values == NULL) {
+    //     values = (float*)calloc(video_buffer.audio_samples_per_frame*sizeof(float),1);
+    // }
     static int values_offset = 0;
     // int index = video_buffer.frame_count % 100;
     int16_t* audio_buff = (int16_t*)video_buffer.audio_buff;
 
 
-
-    static int frequency        = 261;  //Hz //middle C
-    if (ImGui::DragInt("Frequency", &frequency)) {
-        int16_t* audio_buff = (int16_t*)video_buffer.audio_buff;
-        int square_wave_ctr = 0;
-        int square_wave_prd = video_buffer.rate/frequency;
-
-        // Eskemina's example
-        #define PI 3.141592653589793
-        for (int i = 0; i < buff_size/2; i++) {
-            double t = (double)i / video_buffer.rate;
-            int16_t sample = (int16_t)(sin(2 * PI * frequency * t) * 1600);
-            audio_buff[i] = sample;
-        }
-    }
-
-
     if (audio_buff) {
-        for (int i = 0; i < 2048; i++)
+        for (int i = 0; i < video_buffer.audio_samples_per_frame; i++)
         {
-            values[i] = audio_buff[i];
+            left[i] = audio_buff[i*2 +0];
+            rght[i] = audio_buff[i*2 +1];
         }
     }
 
-    // ImGui::PlotLines("waveform", values, 2048, 0, "test", -2000.0f, 2000.0f, ImVec2(0, 80.0f));
-    ImGui::PlotHistogram("waveform", values, 2048, 0, "test", -2000.0f, 2000.0f, ImVec2({0, 80.0f}));
+    int spf = video_buffer.audio_samples_per_frame;
+
+    // ImGui::PlotLines("waveform", values, 4096, 0, "test", -2000.0f, 2000.0f, ImVec2(0, 80.0f));
+    ImGui::PlotHistogram("left",  left, spf, 0, "test", -2000.0f, 2000.0f, ImVec2({0, 80.0f}));
+    ImGui::PlotHistogram("right", rght, spf, 0, "test", -2000.0f, 2000.0f, ImVec2({0, 80.0f}));
 
 }
 
@@ -559,6 +556,15 @@ void video_player()
         "FO2 IPLOGO.MVE\0"
         "MR  final.mve\0"
     );
+    ImGui::PopItemWidth();
+    ImGui::PushItemWidth(100);
+    if (ImGui::DragInt("V", &video_buffer.audio_volume)) {
+        fill_audio(video_buffer.audio_freq);
+    }
+    ImGui::SameLine();
+    if (ImGui::DragInt("F", &video_buffer.audio_freq)) {
+        fill_audio(video_buffer.audio_freq);
+    }
     ImGui::PopItemWidth();
 
     char* filename = video_buffer.filename ? video_buffer.filename : files[which_file].filename;
@@ -740,9 +746,7 @@ bool parse_chunk(Chunk chunk)
         break;
     case CHUNK_shutdown:
         printf("shutting down\n");
-        snd_pcm_drain(video_buffer.pcm_handle);
-        snd_pcm_close(video_buffer.pcm_handle);
-        free(video_buffer.audio_buff);
+        shutdown_audio();
         //TODO: handle shutdown
         break;
     case CHUNK_end:

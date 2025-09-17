@@ -6,6 +6,8 @@
 
 void parse_opcode(opcodeinfo op, uint8_t* buffer)
 {
+    video_buffer.opcode_type[op.type]++;
+
     switch (op.type)
     {
     case 0x00:
@@ -34,11 +36,14 @@ void parse_opcode(opcodeinfo op, uint8_t* buffer)
     case 0x07:
         send_buffer_to_display(buffer);
         break;
-    case 0x08:  //data: fall through to 0x09 (both are audio)
+    case 0x08:
         printf("parsing  opcode 0x08: audio data\n");
-    case 0x09:  //silence (but processes data instead?)
-        printf("parsing  opcode 0x09: audio silence\n");
-        parse_audio_frame(buffer);
+        if (buffer[0] & 0x0001) {
+            parse_audio_frame(buffer);
+        }
+        break;
+    case 0x09:  //silence (does this do anything?)
+        printf("parsing  opcode 0x09: audio silence (doing nothing)\n");
         break;
     case 0x0A:  //Initialize Video Mode
         init_video_mode(buffer);
@@ -53,12 +58,14 @@ void parse_opcode(opcodeinfo op, uint8_t* buffer)
         printf("skipping opcode 0x0D: Set palette compressed\n");
         break;
     case 0x0E:
+        //this is the skip map used in 0x10
         printf("skipping opcode 0x0E: Unknown\n");
         break;
     case 0x0F:
         parse_decoding_map(buffer, op.size);
         break;
     case 0x10:
+        //this one uses the skip map parsed in 0x0E
         printf("skipping opcode 0x10: Unknown (uses 3 data streams?)\n");
         break;
     case 0x11:

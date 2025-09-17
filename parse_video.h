@@ -33,13 +33,16 @@ struct video {
     uint8_t* frnt_buffer = NULL;
     uint8_t* back_buffer = NULL;
     uint8_t* pxls = NULL;
+    int pitch;
 
     //audio
-    uint16_t* audio_buff = NULL;
-    int pitch;
+    int16_t* audio_buff = NULL;
+    int audio_volume = 1600;
+    int audio_freq   = 210;
     int audio_buff_size = 0;
-    uint32_t rate       = 48000;
-    uint32_t channels   = 2;
+    uint32_t audio_rate       = 48000;
+    uint32_t audio_channels   = 2;
+    int audio_samples_per_frame;
     uint32_t seconds    = 2;
     //ALSA
     snd_pcm_t* pcm_handle;
@@ -71,7 +74,8 @@ struct video {
     int v_chunk_cnt_total = 0;
     int v_chunk_cnt_last  = 0;
     int v_chunk_per_frame = 0;
-    int encode_type[0xf+1];
+    int encode_type[0x0f+1];
+    int opcode_type[0x15+1];
     int frame_count = 0;
     bool blit_marker[16];
     bool allow_blit[16] = {

@@ -87,7 +87,7 @@ void init_video_buffer(uint8_t* buffer, uint8_t version)
 
     video_buffer.block_w   = block_w;
     video_buffer.block_h   = block_h;
-    video_buffer.audio_buff_size = buff_size; //what is this buff_size actually for? audio maybe?
+    // video_buffer.audio_buff_size = buff_size; //what is this buff_size actually for? audio maybe?
     video_buffer.render_w  = block_w*8;
     video_buffer.render_h  = block_h*8;
     video_buffer.pitch     = block_w * 8 * 3;
