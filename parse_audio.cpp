@@ -242,8 +242,8 @@ delta_ch decompress_16(uint8_t* buff, int len)
         l_curr += l_last;
         r_curr += r_last;
 
-        audio_buff[idx +0] = l_curr /8;
-        audio_buff[idx +1] = r_curr /8;
+        audio_buff[idx +0] = l_curr *video_buffer.audio_volume /8;
+        audio_buff[idx +1] = r_curr *video_buffer.audio_volume /8;
 
         l_last = l_curr;
         r_last = r_curr;
@@ -311,12 +311,9 @@ void parse_audio_frame(uint8_t* buffer, opcodeinfo op)
             }
         }
 
-
         audio_buff += offset*2;
         len        -= offset;
     }
-
-
 }
 
 void shutdown_audio()

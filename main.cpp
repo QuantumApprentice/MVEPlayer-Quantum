@@ -580,7 +580,7 @@ void video_player()
     // ImGui::Text("total: %d", video_buffer.audio_calc_rate);
     ImGui::PopItemWidth();
     ImGui::PushItemWidth(100);
-    if (ImGui::DragInt("V", &video_buffer.audio_volume)) {
+    if (ImGui::DragFloat("V", &video_buffer.audio_volume, .001f)) {
         fill_audio(video_buffer.audio_freq);
     }
     ImGui::SameLine();
