@@ -4,6 +4,22 @@
 #include "parse_audio.h"
 
 
+void parse_chunk_ops(uint8_t* chunk, chunkinfo info)
+{
+    int offset = 0;
+    while (offset < info.size)
+    {
+        opcodeinfo op;
+        memcpy(&op, &chunk[offset], sizeof(op));
+        // printf("op -- len: %d, type: 0x%02X, ver: %d\n", op.size, op.type, op.version);
+
+        offset += 4;
+        parse_opcode(op, &chunk[offset]);
+        offset += op.size;
+    }
+}
+
+
 void parse_opcode(opcodeinfo op, uint8_t* buffer)
 {
     video_buffer.opcode_type[op.type]++;
@@ -22,7 +38,8 @@ void parse_opcode(opcodeinfo op, uint8_t* buffer)
         create_timer(buffer);
         break;
     case 0x03:
-        printf("skipping opcode 0x03: Init audio buffers\n");
+        printf("parsing  opcode 0x03: Initing audio buffers\n");
+        init_audio(buffer, op.version);
         break;
     case 0x04:
         printf("skipping opcode 0x04: start/stop audio (skipping for now)\n");
@@ -37,10 +54,8 @@ void parse_opcode(opcodeinfo op, uint8_t* buffer)
         send_buffer_to_display(buffer);
         break;
     case 0x08:
-        printf("parsing  opcode 0x08: audio data\n");
-        if (buffer[0] & 0x0001) {
-            parse_audio_frame(buffer);
-        }
+        printf("parsing  opcode 0x08: audio data | length: %d\n", op.size);
+        parse_audio_frame(buffer, op);
         break;
     case 0x09:  //silence (does this do anything?)
         printf("parsing  opcode 0x09: audio silence (doing nothing)\n");

@@ -18,6 +18,7 @@ bool enable_vsync     = true;
 #include <glad/glad.h>
 #include <GLFW/glfw3.h> // Will drag system OpenGL headers
 
+#include "parse_opcodes.h"
 #include "parse_video.h"
 #include "parse_audio.h"
 #include "io_Platform.h"
@@ -356,9 +357,12 @@ bool load_file(char* filename)
             return false;
         }
         video_buffer.frame_count = 0;
-        for (int i = 0; i < 16; i++)
+        for (int i = 0; i < 0x15+1; i++)
         {
-            video_buffer.encode_type[i] = 0;
+            if (i < 0x0f+1) {
+                video_buffer.encode_type[i] = 0;
+            }
+            video_buffer.opcode_type[i] = 0;
         }
     }
     return true;
@@ -421,7 +425,7 @@ uint8_t* block_select(uint8_t* selected, float scale, ImVec2 pos, bool show)
 
 void show_palette(ImVec2 pos)
 {
-    ImGui::SetCursorPos(ImVec2({pos.x, pos.y + 10}));
+    ImGui::SetCursorPos(ImVec2({pos.x, pos.y + 95}));
     for (int y = 0; y < 32; y++)
     {
         ImGui::SetCursorPosX(pos.x+250);
@@ -439,8 +443,9 @@ void show_palette(ImVec2 pos)
 }
 
 //plots chunks used per frame for easy display
-void plot_chunk_usage()
+void plot_chunk_usage(ImVec2 pos)
 {
+    ImGui::SetCursorPos(ImVec2({pos.x+400, pos.y + 10}));
     // Fill an array of contiguous float values to plot
     static float values[101] = {};
     static int values_offset = 0;
@@ -456,8 +461,9 @@ void plot_chunk_usage()
     ImGui::PlotLines("###", values, 100, 0, overlay, -1.0f, 10.0f, ImVec2(0, 80.0f));
 }
 
-void plot_audio_waveform()
+void plot_audio_waveform(ImVec2 pos)
 {
+    ImGui::SetCursorPosX(pos.x+400);
     int buff_size = video_buffer.frames * video_buffer.audio_channels * 2; //2 is the sample size?
     static float left[4096] = {};
     static float rght[4096] = {};
@@ -481,8 +487,11 @@ void plot_audio_waveform()
     int spf = video_buffer.audio_samples_per_frame;
 
     // ImGui::PlotLines("waveform", values, 4096, 0, "test", -2000.0f, 2000.0f, ImVec2(0, 80.0f));
-    ImGui::PlotHistogram("left",  left, spf, 0, "test", -2000.0f, 2000.0f, ImVec2({0, 80.0f}));
-    ImGui::PlotHistogram("right", rght, spf, 0, "test", -2000.0f, 2000.0f, ImVec2({0, 80.0f}));
+    ImVec2 size = ImGui::GetItemRectSize();
+    size.x /= 2;
+    ImGui::PlotHistogram("###left",  left, spf, 0, "left", -2000.0f, 2000.0f, size);//ImVec2({400, 80.0f}));
+    ImGui::SameLine();
+    ImGui::PlotHistogram("###right", rght, spf, 0, "right", -2000.0f, 2000.0f, size);//ImVec2({400, 80.0f}));
 
 }
 
@@ -517,6 +526,18 @@ bool show_block_info(ImVec2 pos, float scale)
         show = !show;
     }
     return show;
+}
+
+void show_audio_info(ImVec2 pos)
+{
+    ImGui::SetCursorPos({pos.x+260,pos.y});
+    ImGui::Text("Audio Rate: %dHz", video_buffer.audio_rate);
+    ImGui::SetCursorPosX({pos.x+260});
+    ImGui::Text("Channels: %d %s", video_buffer.audio_channels, video_buffer.audio_channels == 1 ? "(Mono)" : "(Stereo)");
+    ImGui::SetCursorPosX({pos.x+260});
+    ImGui::Text("Bits per Channel:%d", video_buffer.audio_bits);
+    ImGui::SetCursorPosX({pos.x+260});
+    ImGui::Text(video_buffer.audio_compress ? "Compression On" : "Compression Off");
 }
 
 
@@ -556,6 +577,7 @@ void video_player()
         "FO2 IPLOGO.MVE\0"
         "MR  final.mve\0"
     );
+    // ImGui::Text("total: %d", video_buffer.audio_calc_rate);
     ImGui::PopItemWidth();
     ImGui::PushItemWidth(100);
     if (ImGui::DragInt("V", &video_buffer.audio_volume)) {
@@ -617,18 +639,19 @@ void video_player()
 
     bool show = show_block_info(pos, scale);
 
-    plot_chunk_usage();
-    plot_audio_waveform();
 
     if (rerender) {
         parse_chunk(chunk);
     }
 
+    show_audio_info(pos);
     show_palette(pos);
+    plot_chunk_usage(pos);
+    plot_audio_waveform(pos);
 
     //image
     if (video_buffer.pxls) {
-        ImGui::SetCursorPos(ImVec2(pos.x+400, pos.y));
+        ImGui::SetCursorPosX(pos.x+400);
         ImVec2 uv_min = {0, 0};
         ImVec2 uv_max = {1.0, 1.0};
         int width   = video_buffer.render_w;
@@ -730,15 +753,20 @@ bool parse_chunk(Chunk chunk)
     {
     case CHUNK_init_audio:
         printf("initing audio\n");
-        init_audio(chunk.chunk);
+        // parse_op(chunk.chunk, chunk.info);
+        parse_chunk_ops(chunk.chunk, chunk.info);
+        // init_audio(chunk.chunk, chunk.info);
         break;
     case CHUNK_audio:
-        printf("skipping processing audio\n");
+        printf("processing audio\n");
+        parse_chunk_ops(chunk.chunk, chunk.info);
+        // parse_audio_frame(chunk.chunk);
         //TODO: process the audio
         break;
     case CHUNK_init_video:
         printf("initing video\n");
-        init_video(chunk.chunk, chunk.info);
+        parse_chunk_ops(chunk.chunk, chunk.info);
+        // init_video(chunk.chunk, chunk.info);
         break;
     case CHUNK_video:
         printf("processing video\n");

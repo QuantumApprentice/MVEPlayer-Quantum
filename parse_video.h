@@ -2,12 +2,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <alsa/asoundlib.h>
-
-struct chunkinfo {
-    uint16_t size;
-    uint16_t type;
-};
-
+#include "parse_opcodes.h"
 
 #pragma pack(push,1)
 union palette {
@@ -37,12 +32,18 @@ struct video {
 
     //audio
     int16_t* audio_buff = NULL;
-    int audio_volume = 1600;
-    int audio_freq   = 210;
     int audio_buff_size = 0;
-    uint32_t audio_rate       = 48000;
-    uint32_t audio_channels   = 2;
+    int audio_volume    = 1600;
+    int audio_freq      = 210;
+    uint32_t audio_rate = 48000;
+    uint32_t audio_channels = 2;
     int audio_samples_per_frame;
+    snd_pcm_hw_params_t* audio_params;
+    int audio_bits     = 0;
+    int audio_compress = 0;
+    // int audio_calc_rate = 0;
+
+
     uint32_t seconds    = 2;
     //ALSA
     snd_pcm_t* pcm_handle;
