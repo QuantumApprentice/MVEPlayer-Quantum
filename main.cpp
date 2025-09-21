@@ -390,7 +390,7 @@ uint8_t* block_select(uint8_t* selected, float scale, ImVec2 pos, bool show)
             char num[4];
             snprintf(num, 4, "%03d", cur_block);
             ImGui::PushID(cur_block);
-            ImGui::SetCursorPos(ImVec2(pos.x+400 + x*8*scale , pos.y + y*8*scale));
+            ImGui::SetCursorPos(ImVec2(pos.x+400 + x*8*scale , pos.y+180 + y*8*scale));
             if (ImGui::Selectable(show ? num : "###", selected[cur_block] != 0, 0, ImVec2(8*scale, 6*scale)))
             {
                 // Toggle clicked cell - clear all cells and set single selected
@@ -402,7 +402,7 @@ uint8_t* block_select(uint8_t* selected, float scale, ImVec2 pos, bool show)
 
             ImGuiIO& io = ImGui::GetIO();
             float mouse_x = io.MousePos.x - pos.x - 400;
-            float mouse_y = io.MousePos.y - pos.y;
+            float mouse_y = io.MousePos.y - pos.y - 180;
 
             if (mouse_x >= 0 && mouse_y >= 0 && video_buffer.map_stream) {
                 int block_num = (int)(mouse_y/(8*scale))*video_buffer.block_w + mouse_x/8/scale;
