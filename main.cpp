@@ -545,7 +545,7 @@ void video_player()
 {
     static bool file_loaded     = false;
     static bool render_on_chunk = false;        //TODO: do I want this anymore? currently unused
-    static ImVec2 pos = ImGui::GetCursorPos();
+    ImVec2 pos = ImGui::GetCursorPos();
     static Chunk chunk;
     static bool pause = false;
     static int which_file = 0;

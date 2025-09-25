@@ -77,15 +77,18 @@ void init_audio(uint8_t* buff, uint8_t version)
         min_buff_len = v1.min_buff_len;
     }
 
-
+    _snd_pcm_format bitsWide = SND_PCM_FORMAT_U8;
+    _snd_pcm_access intrLeav = SND_PCM_ACCESS_RW_NONINTERLEAVED;
     int channels = 1;
     int bits     = 8;
     int compress = false;
     if (flags & 0x1) {   //0=mono, 1=stereo
         channels = 2;
+        intrLeav = SND_PCM_ACCESS_RW_INTERLEAVED;
     }
     if (flags & 0x2) {   //0=8-bit, 1=16-bit
-        bits = 16;
+        bits     = 16;
+        bitsWide = SND_PCM_FORMAT_S16_LE;
     }
     if (flags & 0x4) {   //using compression
         compress = true;
@@ -112,12 +115,12 @@ void init_audio(uint8_t* buff, uint8_t version)
     snd_pcm_hw_params_any(video_buffer.pcm_handle, video_buffer.audio_params);
 
     //set params
-    pcm = snd_pcm_hw_params_set_access(video_buffer.pcm_handle, video_buffer.audio_params, SND_PCM_ACCESS_RW_INTERLEAVED);
+    pcm = snd_pcm_hw_params_set_access(video_buffer.pcm_handle, video_buffer.audio_params, intrLeav);
     if (pcm < 0) {
         printf("ALSA Audio ERROR: Can't set interleaved mode. %s\n", snd_strerror(pcm));
     }
 
-    pcm = snd_pcm_hw_params_set_format(video_buffer.pcm_handle, video_buffer.audio_params, SND_PCM_FORMAT_S16_LE);
+    pcm = snd_pcm_hw_params_set_format(video_buffer.pcm_handle, video_buffer.audio_params, bitsWide);
     if (pcm < 0) {
         printf("ALSA Audio ERROR: Can't set format. %s\n",snd_strerror(pcm));
     }
@@ -169,7 +172,12 @@ void init_audio(uint8_t* buff, uint8_t version)
     int samples_per_frame = sample_rate/fps;
     video_buffer.audio_samples_per_frame = samples_per_frame;
 
-    int buff_size = min_buff_len;
+    int buff_size;
+    if (min_buff_len > 0) {
+        buff_size = min_buff_len;
+    } else {
+        buff_size = samples_per_frame;
+    }
 
     //allocate buffer
     if (!video_buffer.audio_buff) {
@@ -220,37 +228,74 @@ struct delta_ch {
     int left = 0;
     int rght = 0;
 } last_delta;
+//stereo
 delta_ch decompress_16(uint8_t* buff, int len)
 {
     int16_t* buff_16 = (int16_t*)buff;
-    int16_t l_curr;
-    int16_t r_curr;
-    int16_t l_last = buff_16[0];
-    int16_t r_last = buff_16[1];
-
     int16_t* audio_buff = video_buffer.audio_buff;
-    int audio_buff_size = video_buffer.audio_buff_size;
-    int i = 2;
-    for (; i < len/2; i++)
-    {
-        int idx   = i*2;
-        int val_l = buff[idx+0];
-        int val_r = buff[idx+1];
-        l_curr = delta_table[val_l];
-        r_curr = delta_table[val_r];
+    if (video_buffer.audio_channels == 1) {     //mono
+        int16_t last = buff_16[0];
+        for (int i = 0; i < len; i++)
+        {
+            int16_t curr = delta_table[buff[i]] + last;
 
-        l_curr += l_last;
-        r_curr += r_last;
+            audio_buff[i] = curr*video_buffer.audio_volume/8;
 
-        audio_buff[idx +0] = l_curr *video_buffer.audio_volume /8;
-        audio_buff[idx +1] = r_curr *video_buffer.audio_volume /8;
-
-        l_last = l_curr;
-        r_last = r_curr;
-
-
+            last = curr;
+        }
     }
-    
+    if (video_buffer.audio_channels == 2) {     //stereo
+        int16_t l_last = buff_16[0];
+        int16_t r_last = buff_16[1];
+
+        for (int i = 2; i < len/2; i++)
+        {
+            int idx   = i*2;
+            int val_l = buff[idx+0];
+            int val_r = buff[idx+1];
+            int16_t l_curr = delta_table[val_l] + l_last;
+            int16_t r_curr = delta_table[val_r] + r_last;
+
+            audio_buff[idx +0] = l_curr *video_buffer.audio_volume /8;
+            audio_buff[idx +1] = r_curr *video_buffer.audio_volume /8;
+
+            l_last = l_curr;
+            r_last = r_curr;
+        }
+    }
+
+}
+
+//stereo
+void decompress_8(uint8_t* buff, int len)
+{
+    int8_t* audio_buff = (int8_t*)video_buffer.audio_buff;
+    if (video_buffer.audio_channels == 1) {     //mono
+        static int8_t last = buff[0];
+        for (int i = 0; i < len; i++)
+        {
+            int8_t curr = delta_table[buff[i]] + last;
+            audio_buff[i] = curr*video_buffer.audio_volume /8;
+            last = curr;
+        }
+    }
+
+    if (video_buffer.audio_channels == 2) {     //stereo
+        static int8_t l_last = buff[0];
+        static int8_t r_last = buff[1];
+        for (int i = 2; i < len; i++)
+        {
+            int8_t l_curr = delta_table[buff[i*2 +0]] + l_last;
+            int8_t r_curr = delta_table[buff[i*2 +1]] + r_last;
+
+            audio_buff[i*2 +0] = (l_curr)*video_buffer.audio_volume /8;
+            audio_buff[i*2 +1] = (r_curr)*video_buffer.audio_volume /8;
+
+            l_last = l_curr;
+            r_last = r_curr;
+        }
+    }
+
 }
 
 //      lispGamer
@@ -271,10 +316,46 @@ void parse_audio_frame(uint8_t* buffer, opcodeinfo op)
     //      actual output length is frame.length
 
     // video_buffer.audio_calc_rate += frame->length;
+    if (video_buffer.audio_compress == 0) {
+        // memcpy(video_buffer.audio_buff, frame->data, op.size-8);
+        int8_t* audio_buff_8 = (int8_t*)video_buffer.audio_buff;
+        if (video_buffer.audio_bits == 8) {
+            if (video_buffer.audio_channels == 1) {
+                for (int i = 0; i < op.size-8; i++)
+                {
+                    int8_t sample = frame->data[i];
+                    audio_buff_8[i] = sample*video_buffer.audio_volume/8;
+                }
+            }
+            if (video_buffer.audio_channels == 2) {
+                for (int i = 0; i < (op.size-8)/2; i++)
+                {
+                    int8_t l_curr = frame->data[i*2 +0];
+                    int8_t r_curr = frame->data[i*2 +1];
+                    audio_buff_8[i*2 +0] = l_curr*video_buffer.audio_volume/8;
+                    audio_buff_8[i*2 +1] = r_curr*video_buffer.audio_volume/8;
+                }
+            }
+        }
+        // for (int i = 0; i < op.size-8; i++)
+        // {
+        //     int16_t sample = *(int16_t*)frame->data[i];
+        //     video_buffer.audio_buff[i] = sample*video_buffer.audio_volume/8;
+        // }
+    }
 
-    uint8_t decompress_buff[65536] = {0};
-    memcpy(decompress_buff, frame->data, op.size-8);
-    last_delta = decompress_16(decompress_buff, op.size-8);
+    if (video_buffer.audio_compress == 1) {
+        uint8_t decompress_buff[65536] = {0};
+        memcpy(decompress_buff, frame->data, op.size-8);
+        if (video_buffer.audio_bits == 8 ) {
+            decompress_8(decompress_buff, op.size-8);
+        }
+        if (video_buffer.audio_bits == 16) {
+            last_delta = decompress_16(decompress_buff, op.size-8);
+        }
+    }
+
+
 
     int len = frame->length / 4;  //total number of samples in this chunk
     int16_t* audio_buff = (int16_t*)video_buffer.audio_buff;
@@ -295,7 +376,15 @@ void parse_audio_frame(uint8_t* buffer, opcodeinfo op)
             break;
         }
 
-        int32_t offset = snd_pcm_writei(video_buffer.pcm_handle, audio_buff, len);
+        int32_t offset = 0;
+        if (video_buffer.audio_bits == 8) {
+            int8_t* buff_8 = (int8_t*)video_buffer.audio_buff;
+            offset = snd_pcm_writei(video_buffer.pcm_handle, buff_8, len);
+        }
+        if (video_buffer.audio_bits == 16) {
+            offset = snd_pcm_writei(video_buffer.pcm_handle, audio_buff, len);
+        }
+
 
         // printf("time: %u\t offset: %d\t remainder: %d\n", io_nano_time(), offset, len);
 
