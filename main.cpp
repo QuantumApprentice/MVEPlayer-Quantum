@@ -20,7 +20,7 @@ bool enable_vsync     = true;
 
 #include "parse_opcodes.h"
 #include "parse_video.h"
-#include "parse_audio.h"
+#include "parse_audio_alsa.h"
 #include "io_Platform.h"
 #include "io_Timer.h"
 #include <malloc.h>
@@ -346,6 +346,9 @@ bool load_file(char* filename)
         video_buffer.frnt_buffer = NULL;
         video_buffer.back_buffer = NULL;
     }
+    if (video_buffer.audio_buff) {
+        // shutdown_audio_alsa();
+    }
 
     video_buffer.fileptr = open_file(filename);
     if (!video_buffer.fileptr) {
@@ -581,11 +584,11 @@ void video_player()
     ImGui::PopItemWidth();
     ImGui::PushItemWidth(100);
     if (ImGui::DragFloat("V", &video_buffer.audio_volume, .001f)) {
-        fill_audio(video_buffer.audio_freq);
+        // fill_audio_alsa(video_buffer.audio_freq);
     }
     ImGui::SameLine();
     if (ImGui::DragInt("F", &video_buffer.audio_freq)) {
-        fill_audio(video_buffer.audio_freq);
+        // fill_audio_alsa(video_buffer.audio_freq);
     }
     ImGui::PopItemWidth();
 
@@ -774,7 +777,7 @@ bool parse_chunk(Chunk chunk)
         break;
     case CHUNK_shutdown:
         printf("shutting down\n");
-        shutdown_audio();
+        // shutdown_audio_alsa();
         //TODO: handle shutdown
         break;
     case CHUNK_end:

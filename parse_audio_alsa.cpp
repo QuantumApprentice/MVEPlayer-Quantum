@@ -1,4 +1,4 @@
-#include "parse_audio.h"
+#include "parse_audio_alsa.h"
 #include <memory.h>
 #include <math.h>
 
@@ -39,7 +39,7 @@ struct audio_frame {
 #pragma pack(pop)
 
 
-void init_audio(uint8_t* buff, uint8_t version)
+void init_audio_alsa(uint8_t* buff, uint8_t version)
 {
     #pragma pack(push,1)
     struct audio_info_v0 {
@@ -77,9 +77,11 @@ void init_audio(uint8_t* buff, uint8_t version)
         min_buff_len = v1.min_buff_len;
     }
 
-    _snd_pcm_format bitsWide = SND_PCM_FORMAT_U8;
-    _snd_pcm_access intrLeav = SND_PCM_ACCESS_RW_NONINTERLEAVED;
-    int channels = 1;
+    // _snd_pcm_format bitsWide = SND_PCM_FORMAT_U8;
+    _snd_pcm_format bitsWide = SND_PCM_FORMAT_S16_LE;
+    // _snd_pcm_access intrLeav = SND_PCM_ACCESS_RW_NONINTERLEAVED;
+    _snd_pcm_access intrLeav = SND_PCM_ACCESS_RW_INTERLEAVED;
+    int channels = 1;   //TODO: might need to experiment when converting mono to stereo
     int bits     = 8;
     int compress = false;
     if (flags & 0x1) {   //0=mono, 1=stereo
@@ -88,7 +90,7 @@ void init_audio(uint8_t* buff, uint8_t version)
     }
     if (flags & 0x2) {   //0=8-bit, 1=16-bit
         bits     = 16;
-        bitsWide = SND_PCM_FORMAT_S16_LE;
+        // bitsWide = SND_PCM_FORMAT_S16_LE;
     }
     if (flags & 0x4) {   //using compression
         compress = true;
@@ -109,36 +111,70 @@ void init_audio(uint8_t* buff, uint8_t version)
     pcm = snd_pcm_open(&video_buffer.pcm_handle, "default", SND_PCM_STREAM_PLAYBACK, 0);
     if (pcm < 0) {
         printf("ALSA Audio ERROR: Can't open '%s' PCM devicel. %s\n", "default", snd_strerror(pcm));
+        return;
+        // exit (1);
     }
 
-    snd_pcm_hw_params_alloca(&video_buffer.audio_params);
-    snd_pcm_hw_params_any(video_buffer.pcm_handle, video_buffer.audio_params);
+    // snd_pcm_hw_params_alloca(&video_buffer.audio_params);
+    pcm = snd_pcm_hw_params_malloc(&video_buffer.audio_params);
+    if (pcm < 0) {
+        fprintf (stderr, "cannot allocate hardware parameter structure (%s)\n",
+                snd_strerror (pcm));
+        return;
+        // exit (1);
+    }
+
+    //TODO: if this errors randomly then remove the error check
+    pcm = snd_pcm_hw_params_any(video_buffer.pcm_handle, video_buffer.audio_params);
+    if (pcm < 0) {
+        fprintf (stderr, "cannot initialize hardware parameter structure (%s)\n",
+            snd_strerror (pcm));
+    }
 
     //set params
     pcm = snd_pcm_hw_params_set_access(video_buffer.pcm_handle, video_buffer.audio_params, intrLeav);
     if (pcm < 0) {
         printf("ALSA Audio ERROR: Can't set interleaved mode. %s\n", snd_strerror(pcm));
+        return;
+        // exit (1);
     }
 
     pcm = snd_pcm_hw_params_set_format(video_buffer.pcm_handle, video_buffer.audio_params, bitsWide);
     if (pcm < 0) {
         printf("ALSA Audio ERROR: Can't set format. %s\n",snd_strerror(pcm));
-    }
-
-    pcm = snd_pcm_hw_params_set_channels(video_buffer.pcm_handle, video_buffer.audio_params, video_buffer.audio_channels);
-    if (pcm < 0) {
-        printf("ALSA Audio ERROR: Can't set channels count. %s\n", snd_strerror(pcm));
+        return;
+        // exit (1);
     }
 
     pcm = snd_pcm_hw_params_set_rate_near(video_buffer.pcm_handle, video_buffer.audio_params, &video_buffer.audio_rate, 0);
     if (pcm < 0) {
         printf("ALSA Audio ERROR: Can't set rate. %s\n", snd_strerror(pcm));
+        return;
+        // exit (1);
+    }
+
+    pcm = snd_pcm_hw_params_set_channels(video_buffer.pcm_handle, video_buffer.audio_params, video_buffer.audio_channels);
+    if (pcm < 0) {
+        printf("ALSA Audio ERROR: Can't set channels count. %s\n", snd_strerror(pcm));
+        return;
+        // exit (1);
     }
 
     //write params
     pcm = snd_pcm_hw_params(video_buffer.pcm_handle, video_buffer.audio_params);
     if (pcm < 0) {
         printf("ALSA Audio ERROR: Can't set hardware params. %s\n", snd_strerror(pcm));
+        return;
+        // exit (1);
+    }
+
+    //TODO: docs say this is automatic, but tutorial has it manually https://equalarea.com/paul/alsa-audio.html
+    pcm = snd_pcm_prepare(video_buffer.pcm_handle);
+    if (pcm < 0) {
+        fprintf (stderr, "cannot prepare audio interface for use (%s)\n",
+                snd_strerror (pcm));
+        return;
+        // exit (1);
     }
 
     //resume info?
@@ -159,7 +195,7 @@ void init_audio(uint8_t* buff, uint8_t version)
     }
 
     snd_pcm_hw_params_get_rate(video_buffer.audio_params, &tmp, 0);
-    printf("rate: %d bps file-rate: %d\n", tmp, video_buffer.audio_rate);
+    printf("init audio : rate: %d bps file-rate: %d\n", tmp, video_buffer.audio_rate);
     // printf("seconds: %d (although really what use is this?)\n", video_buffer.seconds);
 
     // allocate? buffer to hold single period?
@@ -185,12 +221,12 @@ void init_audio(uint8_t* buff, uint8_t version)
     }
 
     video_buffer.audio_buff_size = buff_size;
-    fill_audio(video_buffer.audio_freq);
+    // fill_audio_alsa(video_buffer.audio_freq);
 
     return;
 }
 
-void fill_audio(int frequency)
+void fill_audio_alsa(int frequency)
 {
     if (video_buffer.audio_buff == NULL) {
         return;
@@ -224,25 +260,37 @@ void fill_audio(int frequency)
     }
 }
 
-struct delta_ch {
-    int left = 0;
-    int rght = 0;
-} last_delta;
 //stereo
-delta_ch decompress_16(uint8_t* buff, int len)
+void decompress_16(uint8_t* buff, int len)
 {
     int16_t* buff_16 = (int16_t*)buff;
     int16_t* audio_buff = video_buffer.audio_buff;
     if (video_buffer.audio_channels == 1) {     //mono
-        int16_t last = buff_16[0];
+        // int16_t last = buff_16[0];
+        // for (int i = 0; i < len; i++)
+        // {
+        //     int16_t curr = delta_table[buff[i]] + last;
+        //     audio_buff[i] = curr*video_buffer.audio_volume/8;
+        //     last = curr;
+        // }
+
+        int16_t l_last = buff_16[0];
+        int16_t r_last = buff_16[0];
         for (int i = 0; i < len; i++)
         {
-            int16_t curr = delta_table[buff[i]] + last;
+            int idx   = i*2;
+            int val_l = buff[i];
+            // int val_r = buff[idx+1];
+            int16_t l_curr = delta_table[val_l] + l_last;
+            int16_t r_curr = delta_table[val_l] + r_last;
 
-            audio_buff[i] = curr*video_buffer.audio_volume/8;
+            audio_buff[idx +0] = l_curr *video_buffer.audio_volume /8;
+            audio_buff[idx +1] = r_curr *video_buffer.audio_volume /8;
 
-            last = curr;
+            l_last = l_curr;
+            r_last = r_curr;
         }
+        
     }
     if (video_buffer.audio_channels == 2) {     //stereo
         int16_t l_last = buff_16[0];
@@ -308,7 +356,7 @@ void decompress_8(uint8_t* buff, int len)
 //      bakerstaunch
 //      snd_pcm_avail_delay
 //      snd_pcm_delay
-void parse_audio_frame(uint8_t* buffer, opcodeinfo op)
+void parse_audio_frame_alsa(uint8_t* buffer, opcodeinfo op)
 {
     audio_frame* frame = (audio_frame*)buffer;
     //TODO: docs are wrong for frame.length
@@ -344,16 +392,16 @@ void parse_audio_frame(uint8_t* buffer, opcodeinfo op)
         // }
     }
 
-    if (video_buffer.audio_compress == 1) {
+    // if (video_buffer.audio_compress == 1) {
         uint8_t decompress_buff[65536] = {0};
         memcpy(decompress_buff, frame->data, op.size-8);
         if (video_buffer.audio_bits == 8 ) {
             decompress_8(decompress_buff, op.size-8);
         }
         if (video_buffer.audio_bits == 16) {
-            last_delta = decompress_16(decompress_buff, op.size-8);
+            decompress_16(decompress_buff, op.size-8);
         }
-    }
+    // }
 
 
 
@@ -362,7 +410,7 @@ void parse_audio_frame(uint8_t* buffer, opcodeinfo op)
 
     uint32_t tmp;
     snd_pcm_hw_params_get_rate(video_buffer.audio_params, &tmp, 0);
-    printf("rate: %d bps file-rate: %d\n", tmp, video_buffer.audio_rate);
+    printf("parsing audio : rate: %d bps file-rate: %d\n", tmp, video_buffer.audio_rate);
 
     while (len > 0) {
 
@@ -371,10 +419,21 @@ void parse_audio_frame(uint8_t* buffer, opcodeinfo op)
 
         int wut = snd_pcm_avail_delay(video_buffer.pcm_handle, &avail, &delay);
         printf("time: %u\t delay: %d\t avail: %d\n", io_nano_time(), delay, avail);
+        printf("handle: %0x buff[0-3]: %0x length: %d\n", video_buffer.pcm_handle, *(int32_t*)audio_buff, len);
 
         if (delay > len) {
             break;
         }
+
+        //TODO: docs say this is automatic, but tutorial has it manually https://equalarea.com/paul/alsa-audio.html
+        int err = snd_pcm_prepare(video_buffer.pcm_handle);
+        if (err < 0) {
+            fprintf (stderr, "cannot prepare audio interface for use (%s)\n",
+                    snd_strerror (err));
+            return;
+            // exit (1);
+        }
+
 
         int32_t offset = 0;
         if (video_buffer.audio_bits == 8) {
@@ -382,7 +441,11 @@ void parse_audio_frame(uint8_t* buffer, opcodeinfo op)
             offset = snd_pcm_writei(video_buffer.pcm_handle, buff_8, len);
         }
         if (video_buffer.audio_bits == 16) {
-            offset = snd_pcm_writei(video_buffer.pcm_handle, audio_buff, len);
+            // if (video_buffer.audio_channels == 1) {
+            //     offset = snd_pcm_writen(video_buffer.pcm_handle, (void**)&audio_buff, len);
+            // } else {
+                offset = snd_pcm_writei(video_buffer.pcm_handle, audio_buff, len);
+            // }
         }
 
 
@@ -393,11 +456,16 @@ void parse_audio_frame(uint8_t* buffer, opcodeinfo op)
                 printf("Buffer Underrun.\n");
                 snd_pcm_prepare(video_buffer.pcm_handle);    //if pipe is broken, then wtf is this doing?
             }
-            offset = snd_pcm_recover(video_buffer.pcm_handle, offset, 1);
+            // offset = snd_pcm_recover(video_buffer.pcm_handle, offset, 1);
             if (offset < 0) {
                 printf("ALSA Audio ERROR: Can't write to PCM device. %s\n", snd_strerror(offset));
                 break;
             }
+        }
+        if (offset != len) {
+            fprintf (stderr, "write to audio interface failed (%s)\n",
+                snd_strerror (offset));
+            return;
         }
 
         audio_buff += offset*2;
@@ -405,10 +473,12 @@ void parse_audio_frame(uint8_t* buffer, opcodeinfo op)
     }
 }
 
-void shutdown_audio()
+void shutdown_audio_alsa()
 {
     snd_pcm_drain(video_buffer.pcm_handle);
     snd_pcm_close(video_buffer.pcm_handle);
+    snd_pcm_hw_params_free(video_buffer.audio_params);
+    video_buffer.audio_params = NULL;
     free(video_buffer.audio_buff);
     video_buffer.audio_buff = NULL;
 }

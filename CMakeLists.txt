@@ -8,7 +8,8 @@ target_sources(
     ${EXE_NAME} PRIVATE
     main.cpp
     parse_video.cpp
-    parse_audio.cpp
+    parse_audio_alsa.cpp
+    parse_audio_pipewire.cpp
     parse_opcodes.cpp
     MiniSDL.cpp
     shader_class.cpp
@@ -31,9 +32,38 @@ target_compile_definitions(
   PUBLIC LINUX
 )
 find_package(ALSA)
-target_link_libraries(QMVEPlayer_Quantum
+target_link_libraries(${PROJECT_NAME}
     PRIVATE ALSA::ALSA
 )
+
+find_package(PkgConfig)
+if (PkgConfig_FOUND)
+    # pkg_search_module(Pipewire libpipewire-0.3 REQUIRED)
+    pkg_check_modules(Pipewire IMPORTED_TARGET libpipewire-0.3 REQUIRED)
+    if (Pipewire_FOUND)
+        target_link_libraries(${PROJECT_NAME}
+            PUBLIC PkgConfig::Pipewire
+        )
+    endif()
+
+    pkg_check_modules(Pipewire libpipewire-0.3 REQUIRED)
+    # message(STATUS "bbbbbbb ${Pipewire_FOUND}")
+    # message(STATUS "ccccccc ${Pipewire_LIBRARIES}")
+    # message(STATUS "ddddddd ${Pipewire_LINK_LIBRARIES}")
+    # message(STATUS "eeeeeee ${Pipewire_LIBRARY_DIRS}")
+    # message(STATUS "fffffff ${Pipewire_LDFLAGS}")
+    # message(STATUS "ggggggg ${Pipewire_LDFLAGS_OTHER}")
+    # message(STATUS "hhhhhhh ${Pipewire_INCLUDE_DIRS}")
+    # message(STATUS "iiiiiii ${Pipewire_CFLAGS}")
+    # message(STATUS "jjjjjjj ${Pipewire_CFLAGS_OTHER}")
+    # message(STATUS "kkkkkkk ${Pipewire_MODULE_NAME}")
+
+endif()
+
+# BakerStaunch
+# # : What's going on is you're writing that huge CMake file
+#     to add these arguments to the compiler command that ultimately gets run:
+#     -I/usr/include/pipewire-0.3 -I/usr/include/spa-0.2 -D_REENTRANT -lpipewire-0.3
 endif()
 
 
