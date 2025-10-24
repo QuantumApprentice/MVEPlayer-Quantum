@@ -421,19 +421,24 @@ void parse_audio_frame_alsa(uint8_t* buffer, opcodeinfo op)
         printf("time: %u\t delay: %d\t avail: %d\n", io_nano_time(), delay, avail);
         printf("handle: %0x buff[0-3]: %0x length: %d\n", video_buffer.pcm_handle, *(int32_t*)audio_buff, len);
 
-        if (delay > len) {
-            break;
-        }
+        // if (delay > len) {
+        //     break;
+        // }
 
-        //TODO: docs say this is automatic, but tutorial has it manually https://equalarea.com/paul/alsa-audio.html
-        int err = snd_pcm_prepare(video_buffer.pcm_handle);
-        if (err < 0) {
-            fprintf (stderr, "cannot prepare audio interface for use (%s)\n",
-                    snd_strerror (err));
-            return;
-            // exit (1);
-        }
-
+        //TODO: static bool is temporary fix to get the buffer
+        //      to be filled correctly at least for the first frames
+        // static bool prepared = false;
+        // if (!prepared) {
+        //     prepared = true;
+        //     //TODO: docs say this is automatic, but tutorial has it manually https://equalarea.com/paul/alsa-audio.html
+        //     int err = snd_pcm_prepare(video_buffer.pcm_handle);
+        //     if (err < 0) {
+        //         fprintf (stderr, "cannot prepare audio interface for use (%s)\n",
+        //                 snd_strerror (err));
+        //         return;
+        //         // exit (1);
+        //     }
+        // }
 
         int32_t offset = 0;
         if (video_buffer.audio_bits == 8) {

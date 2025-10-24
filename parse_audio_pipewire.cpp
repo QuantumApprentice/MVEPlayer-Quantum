@@ -6,7 +6,7 @@
 #include <math.h>
 #include <pipewire/pipewire.h>
 #include <spa/utils/result.h>   //used for error handling
-// #include <spa/param/audio/format-utils.h>
+#include <spa/param/audio/format-utils.h>
 
 extern video video_buffer;
 
@@ -71,9 +71,10 @@ struct pw_registry_events reg_events = {
 //     spa_hook_remove(&core_listener);
 // }
 
-#define DEFAULT_RATE        44100
-#define DEFAULT_CHANNELS    2
-#define DEFAULT_VOLUME      0.5
+#define DEFAULT_RATE        (44100)
+#define DEFAULT_CHANNELS    (2)
+#define DEFAULT_VOLUME      (0.02)
+#define DEFAULT_TONE        (440)
 #define DEFAULT_BITS        int16_t
 
 void on_process(void* userdata)
@@ -81,9 +82,8 @@ void on_process(void* userdata)
     struct data* d = (data*)userdata;
     struct pw_buffer*  pw_b;
     struct spa_buffer* sp_b;
-    int i, c, frames, stride;
+    int c, frames, stride;
     DEFAULT_BITS* dst;               //might be assuming 16bit?
-    int16_t  val;
 
     if ((pw_b = pw_stream_dequeue_buffer(d->stream)) == NULL) {
         pw_log_warn("out of buffers: %m");
@@ -99,9 +99,41 @@ void on_process(void* userdata)
     stride = sizeof(DEFAULT_BITS) * DEFAULT_CHANNELS;
     frames = sp_b->datas[0].maxsize/stride;
 
-    
+    if (pw_b->requested) {
+        frames = SPA_MIN(pw_b->requested, frames);
+    }
+    for (int i = 0; i < frames; i++)
+    {
+        d->accumulator += M_PI*2 * DEFAULT_TONE / DEFAULT_RATE;
+        if (d->accumulator >= M_PI*2) {
+            d->accumulator -= M_PI*2;
+        }
+        /* sin() gives a value between -1.0 and 1.0, we first apply
+        * the volume and then scale with 32767.0 to get a 16 bits value
+        * between [-32767 32767].
+        * Another common method to convert a double to
+        * 16 bits is to multiple by 32768.0 and then clamp to
+        * [-32768 32767] to get the full 16 bits range. */
 
+        int16_t val = sin(d->accumulator) * DEFAULT_VOLUME*32767.0;
+        for (int c = 0; c < DEFAULT_CHANNELS; c++)
+        {
+            *dst++ = val;
+        }
+    }
+
+    sp_b->datas[0].chunk->offset = 0;
+    sp_b->datas[0].chunk->stride = stride;
+    sp_b->datas[0].chunk->size   = frames*stride;
+
+    pw_stream_queue_buffer(d->stream, pw_b);
 }
+
+struct pw_stream_events stream_events = {
+    PW_VERSION_STREAM_EVENTS,
+    .process = on_process
+};
+
 
 void init_audio_pipewire(uint8_t* buff, uint8_t version)
 {
@@ -111,52 +143,102 @@ void init_audio_pipewire(uint8_t* buff, uint8_t version)
     printf("headers version: %s\n", pw_get_headers_version());
     printf("library version: %s\n", pw_get_library_version());
 
+    struct data d = {0};
+    const struct spa_pod* params[1];
+    uint8_t audio_buff[1024];
+    struct spa_pod_builder pod_b = SPA_POD_BUILDER_INIT(audio_buff,sizeof(audio_buff));
 
-    struct pw_main_loop* loop;
-    struct pw_context*   ctx;
-    struct pw_core*      core;
-    struct pw_registry*  reg;
-    struct spa_hook      reg_listener;
-
-    loop = pw_main_loop_new(NULL /*properties*/);
-    ctx  = pw_context_new(
-        pw_main_loop_get_loop(loop),
-        NULL,       //properties
-        0           //user data size
+    d.loop   = pw_main_loop_new(NULL);
+    d.stream = pw_stream_new_simple(
+        pw_main_loop_get_loop(d.loop),
+        "audio-src",
+        pw_properties_new(
+            PW_KEY_MEDIA_TYPE, "Audio",
+            PW_KEY_MEDIA_CATEGORY, "Playback",
+            PW_KEY_MEDIA_ROLE, "Music",
+            NULL
+        ),
+        &stream_events,
+        &d
     );
 
-    core = pw_context_connect(
-        ctx,
-        NULL,       //properties
-        0           //user data size
+    struct spa_audio_info_raw trash = {
+        .format   = SPA_AUDIO_FORMAT_S16,
+        .flags    = 0,
+        .rate     = DEFAULT_RATE,
+        .channels = DEFAULT_CHANNELS,
+        .position = {0}
+    };
+
+    //TODO: need to handle audio configs per file here
+    params[0] = spa_format_audio_raw_build(
+        &pod_b, SPA_PARAM_EnumFormat,
+        &trash
     );
 
-    if (core == NULL) {
-        printf("failed to connect pipewire\n");
-        return;
-    }
-
-    reg = pw_core_get_registry(
-        core,
-        PW_VERSION_REGISTRY,
-        0           //user data size
+    pw_stream_connect(
+        d.stream,
+        PW_DIRECTION_OUTPUT,
+        PW_ID_ANY,
+        (pw_stream_flags)(PW_STREAM_FLAG_AUTOCONNECT |
+                          PW_STREAM_FLAG_MAP_BUFFERS |
+                          PW_STREAM_FLAG_RT_PROCESS),
+        params, 1
     );
 
-    // spa_zero(reg_listener);      //why not in part 3?
-    pw_registry_add_listener(
-        reg,
-        &reg_listener,
-        &reg_events,
-        NULL
-    );
+    pw_main_loop_run(d.loop);
+
+    pw_stream_destroy(d.stream);
+    pw_main_loop_destroy(d.loop);
+
+
+    // struct pw_main_loop* loop;
+    // struct pw_context*   ctx;
+    // struct pw_core*      core;
+    // struct pw_registry*  reg;
+    // struct spa_hook      reg_listener;
+
+    // loop = pw_main_loop_new(NULL /*properties*/);
+    // ctx  = pw_context_new(
+    //     pw_main_loop_get_loop(loop),
+    //     NULL,       //properties
+    //     0           //user data size
+    // );
+
+    // core = pw_context_connect(
+    //     ctx,
+    //     NULL,       //properties
+    //     0           //user data size
+    // );
+
+    // if (core == NULL) {
+    //     printf("failed to connect pipewire\n");
+    //     return;
+    // }
+
+    // reg = pw_core_get_registry(
+    //     core,
+    //     PW_VERSION_REGISTRY,
+    //     0           //user data size
+    // );
+
+    // // spa_zero(reg_listener);      //why not in part 3?
+    // pw_registry_add_listener(
+    //     reg,
+    //     &reg_listener,
+    //     &reg_events,
+    //     NULL
+    // );
 
     // pw_main_loop_run(loop);
     // roundtrip(core, loop);
 
-    pw_proxy_destroy((struct pw_proxy*)reg);
-    pw_core_disconnect(core);
-    pw_context_destroy(ctx);
-    pw_main_loop_destroy(loop);
+    // pw_proxy_destroy((struct pw_proxy*)reg);
+    // pw_core_disconnect(core);
+    // pw_context_destroy(ctx);
+    // pw_main_loop_destroy(loop);
+
+
 
 }
 
