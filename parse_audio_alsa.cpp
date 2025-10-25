@@ -103,7 +103,8 @@ void init_audio_alsa(uint8_t* buff, uint8_t version)
 
 
 
-    uint32_t pcm, tmp, dir;
+    int      pcm;
+    uint32_t tmp;
     // snd_pcm_t* pcm_handle;
     // snd_pcm_hw_params_t* params;
     // snd_pcm_uframes_t frames;
@@ -118,7 +119,7 @@ void init_audio_alsa(uint8_t* buff, uint8_t version)
     // snd_pcm_hw_params_alloca(&video_buffer.audio_params);
     pcm = snd_pcm_hw_params_malloc(&video_buffer.audio_params);
     if (pcm < 0) {
-        fprintf (stderr, "cannot allocate hardware parameter structure (%s)\n",
+        fprintf (stderr, "ALSA Audio ERROR: Cannot allocate hardware parameter structure (%s)\n",
                 snd_strerror (pcm));
         return;
         // exit (1);
@@ -127,7 +128,7 @@ void init_audio_alsa(uint8_t* buff, uint8_t version)
     //TODO: if this errors randomly then remove the error check
     pcm = snd_pcm_hw_params_any(video_buffer.pcm_handle, video_buffer.audio_params);
     if (pcm < 0) {
-        fprintf (stderr, "cannot initialize hardware parameter structure (%s)\n",
+        fprintf (stderr, "ALSA Audio ERROR: Cannot initialize hardware parameter structure (%s)\n",
             snd_strerror (pcm));
     }
 
@@ -171,7 +172,7 @@ void init_audio_alsa(uint8_t* buff, uint8_t version)
     //TODO: docs say this is automatic, but tutorial has it manually https://equalarea.com/paul/alsa-audio.html
     pcm = snd_pcm_prepare(video_buffer.pcm_handle);
     if (pcm < 0) {
-        fprintf (stderr, "cannot prepare audio interface for use (%s)\n",
+        fprintf (stderr, "ALSA Audio ERROR: Cannot prepare audio interface for use (%s)\n",
                 snd_strerror (pcm));
         return;
         // exit (1);

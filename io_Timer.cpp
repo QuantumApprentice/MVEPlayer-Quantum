@@ -39,6 +39,7 @@ void io_print_timer(uint64_t StartingTime)
 
 uint64_t io_nano_time()
 {
+    //TODO: error handling, clock_gettime() returns error values
     struct timespec start;
     clock_gettime(CLOCK_MONOTONIC_RAW, &start);
     uint64_t nanotime = (uint64_t)start.tv_sec * 1'000'000'000ULL;

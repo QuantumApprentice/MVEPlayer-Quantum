@@ -451,17 +451,12 @@ void plot_chunk_usage(ImVec2 pos)
     ImGui::SetCursorPos(ImVec2({pos.x+400, pos.y + 10}));
     // Fill an array of contiguous float values to plot
     static float values[101] = {};
-    static int values_offset = 0;
     int index = video_buffer.frame_count % 100;
     values[index] = video_buffer.v_chunk_per_frame;
     values[index+1] = 0;
-    // float average = 0.0f;
-    // for (int n = 0; n < IM_ARRAYSIZE(values); n++)
-        // average += values[n];
-    // average /= (float)IM_ARRAYSIZE(values);
     char overlay[32];
     sprintf(overlay, "Video Chunks per Frame\n         %d", video_buffer.v_chunk_per_frame);
-    ImGui::PlotLines("###", values, 100, 0, overlay, -1.0f, 10.0f, ImVec2(0, 80.0f));
+    ImGui::PlotLines("###vcpf", values, 100, 0, overlay, -1.0f, 10.0f, ImVec2(0, 80.0f));
 }
 
 void plot_audio_waveform(ImVec2 pos)
@@ -470,12 +465,6 @@ void plot_audio_waveform(ImVec2 pos)
     int buff_size = video_buffer.frames * video_buffer.audio_channels * 2; //2 is the sample size?
     static float left[4096] = {};
     static float rght[4096] = {};
-    // static float values = NULL;
-    // if (values == NULL) {
-    //     values = (float*)calloc(video_buffer.audio_samples_per_frame*sizeof(float),1);
-    // }
-    static int values_offset = 0;
-    // int index = video_buffer.frame_count % 100;
     int16_t* audio_buff = (int16_t*)video_buffer.audio_buff;
 
 
@@ -489,7 +478,6 @@ void plot_audio_waveform(ImVec2 pos)
 
     int spf = video_buffer.audio_samples_per_frame;
 
-    // ImGui::PlotLines("waveform", values, 4096, 0, "test", -2000.0f, 2000.0f, ImVec2(0, 80.0f));
     ImVec2 size = ImGui::GetItemRectSize();
     size.x /= 2;
     ImGui::PlotHistogram("###left",  left, spf, 0, "left", -2000.0f, 2000.0f, size);//ImVec2({400, 80.0f}));
@@ -543,6 +531,15 @@ void show_audio_info(ImVec2 pos)
     ImGui::Text(video_buffer.audio_compress ? "Compression On" : "Compression Off");
 }
 
+void plot_fps(ImVec2 pos, float time)
+{
+    static float values[101] = {};
+    int index = video_buffer.frame_count % 100;
+    values[index] = time;
+    values[index+1] = 0;
+    ImGui::PlotLines("###fps", values, 100, 0, "", -1.0f, 20.0f, ImVec2(250, 80.0f));
+}
+
 
 void video_player()
 {
@@ -553,44 +550,11 @@ void video_player()
     static bool pause = false;
     static int which_file = 0;
     static float speed = 1.0f;
-
-    if (ImGui::Checkbox("VSync", &enable_vsync)) {
-        glfwSwapInterval(enable_vsync); // Enable vsync
-    }
-    ImGui::SameLine();
-    ImGui::PushItemWidth(135);
-    ImGui::SliderFloat("Speed", &speed, 0.0f, 10.0f, "%.1f");
-    ImGui::PopItemWidth();
-
-    static float scale = 1;                        //video_buffer.scale;
-    ImGui::PushItemWidth(200);
-    ImGui::DragFloat("Zoom", &scale, .01, 0, 3.0);
-
-
-    struct file_list {
-        char filename[32];
-    } files[3] = {
+    struct file_list { char filename[32]; } files[3] = {
         "../../testing/FO1/IPLOGO.MVE",
         "../../testing/FO2/IPLOGO.MVE",
         "../../testing/final.mve",
     };
-    ImGui::Combo("file", &which_file,
-        video_buffer.filename ? video_buffer.filename :
-        "FO1 IPLOGO.MVE\0"
-        "FO2 IPLOGO.MVE\0"
-        "MR  final.mve\0"
-    );
-    // ImGui::Text("total: %d", video_buffer.audio_calc_rate);
-    ImGui::PopItemWidth();
-    ImGui::PushItemWidth(100);
-    if (ImGui::DragFloat("V", &video_buffer.audio_volume, .001f)) {
-        // fill_audio_alsa(video_buffer.audio_freq);
-    }
-    ImGui::SameLine();
-    if (ImGui::DragInt("F", &video_buffer.audio_freq)) {
-        // fill_audio_alsa(video_buffer.audio_freq);
-    }
-    ImGui::PopItemWidth();
 
     char* filename = video_buffer.filename ? video_buffer.filename : files[which_file].filename;
     if (video_buffer.file_drop_frame) {
@@ -605,8 +569,8 @@ void video_player()
         ImGui::SameLine();
         int rate = video_buffer.timer.rate;
         int subd = video_buffer.timer.subdivision;
-        float fps = 1000000.0f/(rate*subd);
-        ImGui::Text("Target FPS: %f", fps);
+        float target_fps = 1000000.0f/(rate*subd);
+        ImGui::Text("Target FPS: %f", target_fps);
         ImGui::SetItemTooltip(
             "rate (ms to display frame/subdivision) : %d\n"
             "subdivision (dunno, so far always 8)   : %d\n"
@@ -614,16 +578,73 @@ void video_player()
         );
     }
 
+    bool step = false;
     if (ImGui::Button(pause ? "Play" : "Pause")) {
         pause = !pause;
     }
-    ImGui::SameLine();
-    bool step = false;
-    if (ImGui::Button("Frame Step")) {
-        step = true;
+    if (pause) {
+        ImGui::SameLine();
+        if (ImGui::Button("Frame Step")) {
+            step = true;
+        }
+        ImGui::SameLine();
+        ImGui::Text("Frame #%d", video_buffer.frame_count);
+    }
+
+    // instead of 
+    //  next_frame = curr_time + frame_time / speed
+    // you'd do more 
+    //  next_time += frame_time / speed
+    //(and then adjust them for the correct initialization and handling pauses, etc.)
+    // Another approach is
+    //  instead of having an absolute time,
+    //  have the amount of time remaining until you display the next frame,
+    //  then when it hits 0 or goes negative you add the frame time to it
+    uint64_t curr_time = io_nano_time();
+    static uint64_t last_time;
+    static uint64_t next_frame;
+    static int64_t diff_time = 0;
+    // diff_time = curr_time - last_time;
+    ImGui::Text("%lld", diff_time);
+    ImGui::Text("%.3f", 1000.0f/((float)diff_time/1'000'000.0));
+    timer_struct mve_timer = video_buffer.timer;
+    int32_t frame_time = mve_timer.rate*mve_timer.subdivision*1000;
+    plot_fps(pos, 1000.0f/((float)diff_time/1'000'000.0));
+
+
+    if (ImGui::Checkbox("VSync", &enable_vsync)) {
+        glfwSwapInterval(enable_vsync); // Enable vsync
     }
     ImGui::SameLine();
-    ImGui::Text("Frame #%d", video_buffer.frame_count);
+    ImGui::PushItemWidth(135);
+    ImGui::SliderFloat("Speed", &speed, 0.0f, 10.0f, "%.1f");
+    ImGui::PopItemWidth();
+
+    static float scale = 1;                        //video_buffer.scale;
+    ImGui::PushItemWidth(200);
+    ImGui::Combo("file", &which_file,
+        video_buffer.filename ? video_buffer.filename :
+        "FO1 IPLOGO.MVE\0"
+        "FO2 IPLOGO.MVE\0"
+        "MR  final.mve\0"
+    );
+    ImGui::DragFloat("Zoom", &scale, .01, 0, 3.0);
+
+
+    // ImGui::Text("total: %d", video_buffer.audio_calc_rate);
+    ImGui::PopItemWidth();
+    ImGui::PushItemWidth(100);
+    if (ImGui::DragFloat("V", &video_buffer.audio_volume, .001f)) {
+        // fill_audio_alsa(video_buffer.audio_freq);
+    }
+    ImGui::SameLine();
+    if (ImGui::DragInt("F", &video_buffer.audio_freq)) {
+        // fill_audio_alsa(video_buffer.audio_freq);
+    }
+    ImGui::PopItemWidth();
+
+
+
 #ifdef DEBUG
         if (ImGui::Button(video_buffer.encode_bits == 0x0F ? "low order bits first (0x0F)" : "high order bits first (0xF0)")) {
             video_buffer.encode_bits = ~video_buffer.encode_bits;
@@ -639,6 +660,7 @@ void video_player()
     ImGui::Text("window w: %d  h: %d", video_buffer.window_w, video_buffer.window_h);
     ImGui::Text("render w: %d  h: %d", video_buffer.render_w, video_buffer.render_h);
     ImGui::Text("block  w: %d  h: %d", video_buffer.block_w,  video_buffer.block_h);
+
 
     bool show = show_block_info(pos, scale);
 
@@ -667,12 +689,6 @@ void video_player()
         //TODO: clean this shit up
         static uint8_t* selected;
         selected = block_select(selected, scale, pos, show);
-        // ImGuiWindow *window = ImGui::GetCurrentWindow();
-        // window->DrawList->AddImage(
-        //     (ImTextureID)(uintptr_t)img_data->render_texture,
-        //     top_corner(img_data->offset), bottom_corner(size, top_corner(img_data->offset)),
-        //     uv_min, uv_max,
-        //     ImGui::GetColorU32(My_Variables->tint_col));
     } else {
         ImGui::SameLine();
         if (!file_loaded) {
@@ -686,9 +702,6 @@ void video_player()
     }
 
 
-    timer_struct mve_timer = video_buffer.timer;
-    uint64_t curr_time = io_nano_time();
-    static uint64_t next_frame;
     if (!speed || curr_time <= next_frame || pause && chunk.info.type == CHUNK_video) {
         if (step) {
             // bypass the return for one click (should be same as one frame)
@@ -696,9 +709,9 @@ void video_player()
             return;
         }
     }
-    int frame_time = mve_timer.rate*mve_timer.subdivision*1000;
-    next_frame = curr_time + frame_time / speed;
-
+    next_frame = curr_time + (uint64_t)(frame_time / speed);
+    diff_time = curr_time - last_time;
+    last_time = curr_time;
 
 
     while (file_loaded)
