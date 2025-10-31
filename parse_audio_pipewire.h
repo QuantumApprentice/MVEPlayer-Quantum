@@ -20,4 +20,4 @@ struct pw_data {
 
 void init_audio_pipewire(uint8_t* buff, uint8_t version);
 void parse_audio_frame_pipewire(uint8_t* buff, opcodeinfo version);
-void shutdown_audio_pipewire(struct pw_data* d);
+void shutdown_audio_pipewire();

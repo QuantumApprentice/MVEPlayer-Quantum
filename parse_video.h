@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include "parse_opcodes.h"
+#include "parse_audio_pipewire.h"
 
 #include <alsa/asoundlib.h>
 #include <pipewire/pipewire.h>
@@ -55,7 +56,7 @@ struct video {
     snd_pcm_uframes_t frames;
     snd_pcm_hw_params_t* audio_params;
     //Pipewire
-    struct pw_data* data;
+    struct pw_data pipewire_data = {0};
 
     int map_size;
     uint8_t* map_stream = NULL;

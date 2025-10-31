@@ -802,7 +802,7 @@ bool parse_chunk(Chunk chunk)
         if (video_buffer.audio_pipe == 0) {
             shutdown_audio_alsa();
         } else {
-            shutdown_audio_pipewire(video_buffer.data);
+            shutdown_audio_pipewire();
         }
         //TODO: handle shutdown
         break;

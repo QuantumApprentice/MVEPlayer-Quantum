@@ -69,7 +69,7 @@ void do_refill(void* usr_data, uint64_t count)
 
     //ringbuffer advance?
     spa_ringbuffer_write_update(&data->ring, idx + avail);
-    // pw_main_loop_quit(data->main_loop);
+    pw_main_loop_quit(data->main_loop);
 }
 
 /* our data processing function is in general:
@@ -85,7 +85,8 @@ void do_refill(void* usr_data, uint64_t count)
 */
 void on_process(void* userdata)
 {
-    struct pw_data* d = (pw_data*)userdata;
+    // struct pw_data* d = (pw_data*)userdata;
+    struct pw_data* d = &video_buffer.pipewire_data;
     struct pw_buffer*  pw_b;
     struct spa_buffer* sp_b;
 
@@ -178,20 +179,20 @@ void init_audio_pipewire(uint8_t* buff, uint8_t version)
     printf("headers version: %s\n", pw_get_headers_version());
     printf("library version: %s\n", pw_get_library_version());
 
-    struct pw_data d = {0};
+    struct pw_data* d = &video_buffer.pipewire_data;
     const struct spa_pod* params[1];
     uint8_t audio_buff[1024];
     struct spa_pod_builder pod_b = SPA_POD_BUILDER_INIT(audio_buff,sizeof(audio_buff));
 
-    d.main_loop = pw_main_loop_new(NULL);
-    d.loop      = pw_main_loop_get_loop(d.main_loop);
+    d->main_loop = pw_main_loop_new(NULL);
+    d->loop      = pw_main_loop_get_loop(d->main_loop);
 
-    // pw_loop_add_signal(d.loop, SIGINT, do_quit, &data);
-    // pw_loop_add_signal(d.loop, SIGTERM, do_quit, &data);
+    pw_loop_add_signal(d->loop, SIGINT,  do_quit, d);
+    pw_loop_add_signal(d->loop, SIGTERM, do_quit, d);
 
-    spa_ringbuffer_init(&d.ring);
-    d.refill_event = pw_loop_add_event(d.loop, do_refill, &d);
-    do_refill(&d,0);        //prefill
+    spa_ringbuffer_init(&d->ring);
+    d->refill_event = pw_loop_add_event(d->loop, do_refill, d);
+    do_refill(d,0);        //prefill
 
     struct pw_properties* props = pw_properties_new(
         PW_KEY_MEDIA_TYPE,     "Audio",
@@ -200,8 +201,8 @@ void init_audio_pipewire(uint8_t* buff, uint8_t version)
         NULL
     );
 
-    d.stream = pw_stream_new_simple(
-        d.loop,
+    d->stream = pw_stream_new_simple(
+        d->loop,
         "audio-src-ring",
         props,
         &stream_events,
@@ -224,7 +225,7 @@ void init_audio_pipewire(uint8_t* buff, uint8_t version)
     );
 
     pw_stream_connect(
-        d.stream,
+        d->stream,
         PW_DIRECTION_OUTPUT,
         PW_ID_ANY,
         (pw_stream_flags)(PW_STREAM_FLAG_AUTOCONNECT |
@@ -233,7 +234,7 @@ void init_audio_pipewire(uint8_t* buff, uint8_t version)
         params, 1
     );
 
-    pw_main_loop_run(d.main_loop);
+    pw_main_loop_run(d->main_loop);
 
     // pw_stream_destroy(d.stream);
     // pw_loop_destroy_source(d.loop, d.refill_event);
@@ -241,8 +242,10 @@ void init_audio_pipewire(uint8_t* buff, uint8_t version)
     // pw_deinit();
 }
 
-void shutdown_audio_pipewire(struct pw_data* d)
+void shutdown_audio_pipewire()
 {
+    struct pw_data* d = &video_buffer.pipewire_data;
+
     pw_stream_destroy(d->stream);
     pw_loop_destroy_source(d->loop, d->refill_event);
     pw_main_loop_destroy(d->main_loop);
@@ -296,6 +299,7 @@ void parse_audio_frame_pipewire(uint8_t* buff, opcodeinfo op)
         }
     // }
 
+    pw_main_loop_run(video_buffer.pipewire_data.main_loop);
 }
 
 
