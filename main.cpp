@@ -563,6 +563,7 @@ void video_player()
     }
     if (ImGui::Button("Play MVE")) {
         file_loaded = load_file(filename);
+        // next_frame = frame_time / speed;
     }
 
     if (video_buffer.timer.rate != 0) {
@@ -709,7 +710,7 @@ void video_player()
             return;
         }
     }
-    next_frame = curr_time + (uint64_t)(frame_time / speed);
+    next_frame = next_frame + (uint64_t)(frame_time / speed);
     diff_time = curr_time - last_time;
     last_time = curr_time;
 

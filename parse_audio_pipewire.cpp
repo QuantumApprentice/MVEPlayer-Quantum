@@ -2,88 +2,113 @@
 #include "parse_opcodes.h"
 
 #include "parse_audio_pipewire.h"
+#include "parse_audio.h"
 
 #include <math.h>
+
 #include <pipewire/pipewire.h>
+
 #include <spa/utils/result.h>   //used for error handling
+
+#include <spa/utils/ringbuffer.h>
+
 #include <spa/param/audio/format-utils.h>
 
 extern video video_buffer;
-
-
-int delta_table_[256] = {
-        0,      1,      2,      3,      4,      5,      6,      7,      8,      9,     10,     11,     12,     13,     14,     15,
-       16,     17,     18,     19,     20,     21,     22,     23,     24,     25,     26,     27,     28,     29,     30,     31,
-       32,     33,     34,     35,     36,     37,     38,     39,     40,     41,     42,     43,     47,     51,     56,     61,
-       66,     72,     79,     86,     94,    102,    112,    122,    133,    145,    158,    173,    189,    206,    225,    245,
-      267,    292,    318,    348,    379,    414,    452,    493,    538,    587,    640,    699,    763,    832,    908,    991,
-     1081,   1180,   1288,   1405,   1534,   1673,   1826,   1993,   2175,   2373,   2590,   2826,   3084,   3365,   3672,   4008,
-     4373,   4772,   5208,   5683,   6202,   6767,   7385,   8059,   8794,   9597,  10472,  11428,  12471,  13609,  14851,  16206,
-    17685,  19298,  21060,  22981,  25078,  27367,  29864,  32589, -29973, -26728, -23186, -19322, -15105, -10503,  -5481,     -1,
-        1,      1,   5481,  10503,  15105,  19322,  23186,  26728,  29973, -32589, -29864, -27367, -25078, -22981, -21060, -19298,
-   -17685, -16206, -14851, -13609, -12471, -11428, -10472,  -9597,  -8794,  -8059,  -7385,  -6767,  -6202,  -5683,  -5208,  -4772,
-    -4373,  -4008,  -3672,  -3365,  -3084,  -2826,  -2590,  -2373,  -2175,  -1993,  -1826,  -1673,  -1534,  -1405,  -1288,  -1180,
-    -1081,   -991,   -908,   -832,   -763,   -699,   -640,   -587,   -538,   -493,   -452,   -414,   -379,   -348,   -318,   -292,
-     -267,   -245,   -225,   -206,   -189,   -173,   -158,   -145,   -133,   -122,   -112,   -102,    -94,    -86,    -79,    -72,
-      -66,    -61,    -56,    -51,    -47,    -43,    -42,    -41,    -40,    -39,    -38,    -37,    -36,    -35,    -34,    -33,
-      -32,    -31,    -30,    -29,    -28,    -27,    -26,    -25,    -24,    -23,    -22,    -21,    -20,    -19,    -18,    -17,
-      -16,    -15,    -14,    -13,    -12,    -11,    -10,     -9,     -8,     -7,     -6,     -5,     -4,     -3,     -2,     -1
-};
 
 void registry_event_global(void* data, uint32_t id,
             uint32_t permissions, const char* type,
             uint32_t version, const struct spa_dict* props);
 
 
-struct data {
-    // int pending;
-    struct pw_main_loop* loop;
-    struct pw_stream*    stream;
-    double accumulator;
-};
-struct pw_registry_events reg_events = {
-    PW_VERSION_REGISTRY_EVENTS,
-    .global = registry_event_global
-};
-
-// void on_core_done(void* data, uint32_t id, int seq)
-// {
-//     struct data* d = (struct data*)data;
-//     if (id == PW_ID_CORE && seq == d->pending) {
-//         pw_main_loop_quit(d->loop);
-//     }
-// }
-
-// void roundtrip(struct pw_core* core, struct pw_main_loop* loop)
-// {
-//     static const struct pw_core_events core_events = {
-//         PW_VERSION_CORE_EVENTS,
-//         .done = on_core_done
-//     };
-//     struct data d = {.loop = loop};
-//     struct spa_hook core_listener;
-//     int err;
-//     pw_core_add_listener(core, &core_listener, &core_events, &d);
-//     d.pending = pw_core_sync(core, PW_ID_CORE, 0);
-//     if ((err = pw_main_loop_run(loop)) < 0) {
-//         printf("pipewire: main_loop_run error: %d, %s\n", err, spa_strerror(err));
-//     }
-//     spa_hook_remove(&core_listener);
-// }
-
 #define DEFAULT_RATE        (44100)
 #define DEFAULT_CHANNELS    (2)
-#define DEFAULT_VOLUME      (0.02)
+#define DEFAULT_VOLUME      (0.02f)
 #define DEFAULT_TONE        (440)
 #define DEFAULT_BITS        int16_t
+#define BUFFER_SIZE         (16*1024)
 
+struct data {
+    struct pw_main_loop* main_loop;
+    struct pw_loop*      loop;
+    struct pw_stream*    stream;
+
+    float accumulator;
+
+    struct spa_source* refill_event;
+
+    struct spa_ringbuffer ring;
+    float buff[BUFFER_SIZE * DEFAULT_CHANNELS];
+};
+// struct pw_registry_events reg_events = {
+//     PW_VERSION_REGISTRY_EVENTS,
+//     .global = registry_event_global
+// };
+
+
+//fills local buffer with tone generator
+void fill_f32(struct data* d, uint32_t offset, int n_frames)
+{
+    float val;
+
+    for (int i = 0; i < n_frames; i++)
+    {
+        d->accumulator += 2*M_PI*440 / DEFAULT_RATE;
+        if (d->accumulator >= 2*M_PI) {
+            d->accumulator -= 2*M_PI;   //TODO: set to zero and test
+        }
+
+        //same as buff[0+0] || buff[0+1] for both left and right
+        val = sinf(d->accumulator) * DEFAULT_VOLUME;
+        for (int c = 0; c < DEFAULT_CHANNELS; c++)
+        {
+            d->buff[((offset + i) % BUFFER_SIZE) * DEFAULT_CHANNELS + c] = val;
+        }
+    }
+}
+
+void do_refill(void* usr_data, uint64_t count)
+{
+    struct data* data = (struct data*)usr_data;
+    int32_t filled;
+    uint32_t idx, avail;
+
+    filled = spa_ringbuffer_get_write_index(&data->ring, &idx);
+    spa_assert(filled >= 0);
+    spa_assert(filled <= BUFFER_SIZE);
+
+    avail = BUFFER_SIZE - filled;
+    fill_f32(data, idx, avail);
+
+
+
+    //ringbuffer advance?
+    spa_ringbuffer_write_update(&data->ring, idx + avail);
+}
+
+/* our data processing function is in general:
+ *
+ *  struct pw_buffer *b;
+ *  b = pw_stream_dequeue_buffer(stream);
+ *
+ *  .. generate stuff in the buffer ...
+ *  In this case we read samples from a ringbuffer. The ringbuffer is
+ *  filled up by another thread.
+ *
+ *  pw_stream_queue_buffer(stream, b);
+*/
 void on_process(void* userdata)
 {
     struct data* d = (data*)userdata;
     struct pw_buffer*  pw_b;
     struct spa_buffer* sp_b;
-    int c, frames, stride;
-    DEFAULT_BITS* dst;               //might be assuming 16bit?
+
+    uint8_t* p;
+    uint32_t idx, to_read, to_silence;
+    int32_t avail, frames, stride;
+
+    // int c, frames, stride;
+    // DEFAULT_BITS* dst;               //might be assuming 16bit?
 
     if ((pw_b = pw_stream_dequeue_buffer(d->stream)) == NULL) {
         pw_log_warn("out of buffers: %m");
@@ -91,50 +116,74 @@ void on_process(void* userdata)
     }
 
     sp_b = pw_b->buffer;
-    //might be assuming 16bit?
-    if ((dst = (DEFAULT_BITS*)sp_b->datas[0].data) == NULL) {
+    // //might be assuming 16bit?
+    // if ((dst = (DEFAULT_BITS*)sp_b->datas[0].data) == NULL) {
+    //     return;
+    // }
+    if ((p = (uint8_t*)sp_b->datas[0].data) == NULL) {  //can't find buffer?
         return;
     }
 
-    stride = sizeof(DEFAULT_BITS) * DEFAULT_CHANNELS;
+    //returns amount of space in ringbuffer, stores ringbuffer index in idx
+    avail = spa_ringbuffer_get_read_index(&d->ring, &idx);
+
+    // stride = sizeof(DEFAULT_BITS) * DEFAULT_CHANNELS;
+    stride = sizeof(float) * DEFAULT_CHANNELS;
     frames = sp_b->datas[0].maxsize/stride;
 
     if (pw_b->requested) {
         frames = SPA_MIN(pw_b->requested, frames);
     }
-    for (int i = 0; i < frames; i++)
-    {
-        d->accumulator += M_PI*2 * DEFAULT_TONE / DEFAULT_RATE;
-        if (d->accumulator >= M_PI*2) {
-            d->accumulator -= M_PI*2;
-        }
-        /* sin() gives a value between -1.0 and 1.0, we first apply
-        * the volume and then scale with 32767.0 to get a 16 bits value
-        * between [-32767 32767].
-        * Another common method to convert a double to
-        * 16 bits is to multiple by 32768.0 and then clamp to
-        * [-32768 32767] to get the full 16 bits range. */
 
-        int16_t val = sin(d->accumulator) * DEFAULT_VOLUME*32767.0;
-        for (int c = 0; c < DEFAULT_CHANNELS; c++)
-        {
-            *dst++ = val;
-        }
+    //read from the ringbuffer?
+    to_read    = avail > 0 ? SPA_MIN(avail, frames) : 0;
+    //otherwise silence?
+    to_silence = frames - to_read;
+
+    if (to_read > 0) {
+        //read data from ringbuffer? into d.buff
+        spa_ringbuffer_read_data(
+            &d->ring,
+            d->buff,
+            BUFFER_SIZE*stride,
+            (idx % BUFFER_SIZE) * stride,
+            p,
+            to_read*stride
+        );
+        //update read pointer
+        spa_ringbuffer_read_update(&d->ring, idx+to_read);
     }
+    if (to_silence > 0) {
+        //rest o buffer silenced
+        memset(SPA_PTROFF(p, to_read*stride, void),0,to_silence*stride);
+    }
+
+    
 
     sp_b->datas[0].chunk->offset = 0;
     sp_b->datas[0].chunk->stride = stride;
     sp_b->datas[0].chunk->size   = frames*stride;
 
     pw_stream_queue_buffer(d->stream, pw_b);
+
+    /* signal the main thread to fill the ringbuffer,
+    * we can only do this, for example
+    * when the available ringbuffer space falls
+    * below a certain level. */
+    pw_loop_signal_event(d->loop, d->refill_event);
 }
 
 struct pw_stream_events stream_events = {
     PW_VERSION_STREAM_EVENTS,
     .process = on_process
 };
+void do_quit(void* userdata, int sig_num)
+{
+    struct data* d = (data*)userdata;
+    pw_main_loop_quit(d->main_loop);
+}
 
-
+//equivalent to main() in pipewire examples
 void init_audio_pipewire(uint8_t* buff, uint8_t version)
 {
     pw_init(0, NULL);
@@ -148,32 +197,44 @@ void init_audio_pipewire(uint8_t* buff, uint8_t version)
     uint8_t audio_buff[1024];
     struct spa_pod_builder pod_b = SPA_POD_BUILDER_INIT(audio_buff,sizeof(audio_buff));
 
-    d.loop   = pw_main_loop_new(NULL);
+    d.main_loop = pw_main_loop_new(NULL);
+    d.loop      = pw_main_loop_get_loop(d.main_loop);
+
+    // pw_loop_add_signal(d.loop, SIGINT, do_quit, &data);
+    // pw_loop_add_signal(d.loop, SIGTERM, do_quit, &data);
+
+    spa_ringbuffer_init(&d.ring);
+    d.refill_event = pw_loop_add_event(d.loop, do_refill, &d);
+    do_refill(&d,0);        //prefill
+
+    struct pw_properties* props = pw_properties_new(
+        PW_KEY_MEDIA_TYPE,     "Audio",
+        PW_KEY_MEDIA_CATEGORY, "Playback",
+        PW_KEY_MEDIA_ROLE,     "Music",
+        NULL
+    );
+
     d.stream = pw_stream_new_simple(
-        pw_main_loop_get_loop(d.loop),
-        "audio-src",
-        pw_properties_new(
-            PW_KEY_MEDIA_TYPE, "Audio",
-            PW_KEY_MEDIA_CATEGORY, "Playback",
-            PW_KEY_MEDIA_ROLE, "Music",
-            NULL
-        ),
+        d.loop,
+        "audio-src-ring",
+        props,
         &stream_events,
         &d
     );
 
-    struct spa_audio_info_raw trash = {
-        .format   = SPA_AUDIO_FORMAT_S16,
+    //TODO: need to handle audio configs per file here?
+    struct spa_audio_info_raw audio_info = {
+        // .format   = SPA_AUDIO_FORMAT_S16,
+        .format   = SPA_AUDIO_FORMAT_F32,
         .flags    = 0,
         .rate     = DEFAULT_RATE,
         .channels = DEFAULT_CHANNELS,
         .position = {0}
     };
-
-    //TODO: need to handle audio configs per file here
     params[0] = spa_format_audio_raw_build(
-        &pod_b, SPA_PARAM_EnumFormat,
-        &trash
+        &pod_b,
+        SPA_PARAM_EnumFormat,
+        &audio_info
     );
 
     pw_stream_connect(
@@ -186,61 +247,63 @@ void init_audio_pipewire(uint8_t* buff, uint8_t version)
         params, 1
     );
 
-    pw_main_loop_run(d.loop);
+    pw_main_loop_run(d.main_loop);
 
     pw_stream_destroy(d.stream);
-    pw_main_loop_destroy(d.loop);
+    pw_loop_destroy_source(d.loop, d.refill_event);
+    pw_main_loop_destroy(d.main_loop);
+    pw_deinit();
+}
 
+void parse_audio_frame_pipewire(uint8_t* buff, opcodeinfo op)
+{
+    audio_frame* frame = (audio_frame*)buff;
+    //TODO: docs are wrong for frame.length
+    //      actual input length is frame.length/(bytes per channel)
+    //      actual output length is frame.length
 
-    // struct pw_main_loop* loop;
-    // struct pw_context*   ctx;
-    // struct pw_core*      core;
-    // struct pw_registry*  reg;
-    // struct spa_hook      reg_listener;
+    // video_buffer.audio_calc_rate += frame->length;
+    if (video_buffer.audio_compress == 0) {
+        // memcpy(video_buffer.audio_buff, frame->data, op.size-8);
+        int8_t* audio_buff_8 = (int8_t*)video_buffer.audio_buff;
+        if (video_buffer.audio_bits == 8) {
+            if (video_buffer.audio_channels == 1) {
+                for (int i = 0; i < op.size-8; i++)
+                {
+                    int8_t sample = frame->data[i];
+                    audio_buff_8[i] = sample*video_buffer.audio_volume/8;
+                }
+            }
+            if (video_buffer.audio_channels == 2) {
+                for (int i = 0; i < (op.size-8)/2; i++)
+                {
+                    int8_t l_curr = frame->data[i*2 +0];
+                    int8_t r_curr = frame->data[i*2 +1];
+                    audio_buff_8[i*2 +0] = l_curr*video_buffer.audio_volume/8;
+                    audio_buff_8[i*2 +1] = r_curr*video_buffer.audio_volume/8;
+                }
+            }
+        }
+        // for (int i = 0; i < op.size-8; i++)
+        // {
+        //     int16_t sample = *(int16_t*)frame->data[i];
+        //     video_buffer.audio_buff[i] = sample*video_buffer.audio_volume/8;
+        // }
+    }
 
-    // loop = pw_main_loop_new(NULL /*properties*/);
-    // ctx  = pw_context_new(
-    //     pw_main_loop_get_loop(loop),
-    //     NULL,       //properties
-    //     0           //user data size
-    // );
-
-    // core = pw_context_connect(
-    //     ctx,
-    //     NULL,       //properties
-    //     0           //user data size
-    // );
-
-    // if (core == NULL) {
-    //     printf("failed to connect pipewire\n");
-    //     return;
+    // if (video_buffer.audio_compress == 1) {
+        uint8_t decompress_buff[65536] = {0};
+        memcpy(decompress_buff, frame->data, op.size-8);
+        if (video_buffer.audio_bits == 8 ) {
+            // decompress_8(decompress_buff, op.size-8);
+        }
+        if (video_buffer.audio_bits == 16) {
+            decompress_16(decompress_buff, op.size-8);
+        }
     // }
 
-    // reg = pw_core_get_registry(
-    //     core,
-    //     PW_VERSION_REGISTRY,
-    //     0           //user data size
-    // );
-
-    // // spa_zero(reg_listener);      //why not in part 3?
-    // pw_registry_add_listener(
-    //     reg,
-    //     &reg_listener,
-    //     &reg_events,
-    //     NULL
-    // );
-
-    // pw_main_loop_run(loop);
-    // roundtrip(core, loop);
-
-    // pw_proxy_destroy((struct pw_proxy*)reg);
-    // pw_core_disconnect(core);
-    // pw_context_destroy(ctx);
-    // pw_main_loop_destroy(loop);
-
-
-
 }
+
 
 void registry_event_global(void* data, uint32_t id,
             uint32_t permissions, const char* type,
