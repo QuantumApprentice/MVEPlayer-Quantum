@@ -4,7 +4,6 @@
 #include "parse_audio_alsa.h"
 #include "parse_audio_pipewire.h"
 
-bool alsa = false;
 
 void parse_chunk_ops(uint8_t* chunk, chunkinfo info)
 {
@@ -41,7 +40,7 @@ void parse_opcode(opcodeinfo op, uint8_t* buffer)
         break;
     case 0x03:
         printf("parsing  opcode 0x03: Initing audio buffers\n");
-        if (alsa) {
+        if (video_buffer.audio_pipe == ALSA) {
             init_audio_alsa(buffer, op.version);
         } else {
             init_audio_pipewire(buffer, op.version);
@@ -61,7 +60,7 @@ void parse_opcode(opcodeinfo op, uint8_t* buffer)
         break;
     case 0x08:
         printf("parsing  opcode 0x08: audio data | length: %d\n", op.size);
-        if (alsa) {
+        if (video_buffer.audio_pipe == ALSA) {
             parse_audio_frame_alsa(buffer, op);
         } else {
             parse_audio_frame_pipewire(buffer, op);

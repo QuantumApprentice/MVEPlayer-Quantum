@@ -21,6 +21,8 @@ bool enable_vsync     = true;
 #include "parse_opcodes.h"
 #include "parse_video.h"
 #include "parse_audio_alsa.h"
+#include "parse_audio_pipewire.h"
+
 #include "io_Platform.h"
 #include "io_Timer.h"
 #include <malloc.h>
@@ -555,6 +557,12 @@ void video_player()
         "../../testing/FO2/IPLOGO.MVE",
         "../../testing/final.mve",
     };
+    ImGui::PushItemWidth(100);
+    ImGui::Combo("audio", &video_buffer.audio_pipe,
+        "alsa\0"
+        "pipewire\0"
+    );
+    ImGui::PopItemWidth();
 
     char* filename = video_buffer.filename ? video_buffer.filename : files[which_file].filename;
     if (video_buffer.file_drop_frame) {
@@ -575,7 +583,7 @@ void video_player()
         ImGui::SetItemTooltip(
             "rate (ms to display frame/subdivision) : %d\n"
             "subdivision (dunno, so far always 8)   : %d\n"
-            "FPS = 1,000,000.0f/(rate*subd)", rate, subd
+            "FPS = 1,000,000.0f / (rate*subd)", rate, subd
         );
     }
 
@@ -791,7 +799,11 @@ bool parse_chunk(Chunk chunk)
         break;
     case CHUNK_shutdown:
         printf("shutting down\n");
-        // shutdown_audio_alsa();
+        if (video_buffer.audio_pipe == 0) {
+            shutdown_audio_alsa();
+        } else {
+            shutdown_audio_pipewire(video_buffer.data);
+        }
         //TODO: handle shutdown
         break;
     case CHUNK_end:

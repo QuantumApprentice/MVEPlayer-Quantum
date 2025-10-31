@@ -10,7 +10,6 @@
 
 #include <spa/utils/result.h>   //used for error handling
 
-#include <spa/utils/ringbuffer.h>
 
 #include <spa/param/audio/format-utils.h>
 
@@ -22,24 +21,10 @@ void registry_event_global(void* data, uint32_t id,
 
 
 #define DEFAULT_RATE        (44100)
-#define DEFAULT_CHANNELS    (2)
 #define DEFAULT_VOLUME      (0.02f)
 #define DEFAULT_TONE        (440)
 #define DEFAULT_BITS        int16_t
-#define BUFFER_SIZE         (16*1024)
 
-struct data {
-    struct pw_main_loop* main_loop;
-    struct pw_loop*      loop;
-    struct pw_stream*    stream;
-
-    float accumulator;
-
-    struct spa_source* refill_event;
-
-    struct spa_ringbuffer ring;
-    float buff[BUFFER_SIZE * DEFAULT_CHANNELS];
-};
 // struct pw_registry_events reg_events = {
 //     PW_VERSION_REGISTRY_EVENTS,
 //     .global = registry_event_global
@@ -47,13 +32,13 @@ struct data {
 
 
 //fills local buffer with tone generator
-void fill_f32(struct data* d, uint32_t offset, int n_frames)
+void fill_f32(struct pw_data* d, uint32_t offset, int n_frames)
 {
     float val;
 
     for (int i = 0; i < n_frames; i++)
     {
-        d->accumulator += 2*M_PI*440 / DEFAULT_RATE;
+        d->accumulator += 2*M_PI*DEFAULT_TONE / DEFAULT_RATE;
         if (d->accumulator >= 2*M_PI) {
             d->accumulator -= 2*M_PI;   //TODO: set to zero and test
         }
@@ -69,7 +54,7 @@ void fill_f32(struct data* d, uint32_t offset, int n_frames)
 
 void do_refill(void* usr_data, uint64_t count)
 {
-    struct data* data = (struct data*)usr_data;
+    struct pw_data* data = (struct pw_data*)usr_data;
     int32_t filled;
     uint32_t idx, avail;
 
@@ -84,6 +69,7 @@ void do_refill(void* usr_data, uint64_t count)
 
     //ringbuffer advance?
     spa_ringbuffer_write_update(&data->ring, idx + avail);
+    // pw_main_loop_quit(data->main_loop);
 }
 
 /* our data processing function is in general:
@@ -99,7 +85,7 @@ void do_refill(void* usr_data, uint64_t count)
 */
 void on_process(void* userdata)
 {
-    struct data* d = (data*)userdata;
+    struct pw_data* d = (pw_data*)userdata;
     struct pw_buffer*  pw_b;
     struct spa_buffer* sp_b;
 
@@ -179,7 +165,7 @@ struct pw_stream_events stream_events = {
 };
 void do_quit(void* userdata, int sig_num)
 {
-    struct data* d = (data*)userdata;
+    struct pw_data* d = (pw_data*)userdata;
     pw_main_loop_quit(d->main_loop);
 }
 
@@ -192,7 +178,7 @@ void init_audio_pipewire(uint8_t* buff, uint8_t version)
     printf("headers version: %s\n", pw_get_headers_version());
     printf("library version: %s\n", pw_get_library_version());
 
-    struct data d = {0};
+    struct pw_data d = {0};
     const struct spa_pod* params[1];
     uint8_t audio_buff[1024];
     struct spa_pod_builder pod_b = SPA_POD_BUILDER_INIT(audio_buff,sizeof(audio_buff));
@@ -249,9 +235,17 @@ void init_audio_pipewire(uint8_t* buff, uint8_t version)
 
     pw_main_loop_run(d.main_loop);
 
-    pw_stream_destroy(d.stream);
-    pw_loop_destroy_source(d.loop, d.refill_event);
-    pw_main_loop_destroy(d.main_loop);
+    // pw_stream_destroy(d.stream);
+    // pw_loop_destroy_source(d.loop, d.refill_event);
+    // pw_main_loop_destroy(d.main_loop);
+    // pw_deinit();
+}
+
+void shutdown_audio_pipewire(struct pw_data* d)
+{
+    pw_stream_destroy(d->stream);
+    pw_loop_destroy_source(d->loop, d->refill_event);
+    pw_main_loop_destroy(d->main_loop);
     pw_deinit();
 }
 

@@ -1,8 +1,10 @@
 #pragma once
 #include <stdio.h>
 #include <stdint.h>
-#include <alsa/asoundlib.h>
 #include "parse_opcodes.h"
+
+#include <alsa/asoundlib.h>
+#include <pipewire/pipewire.h>
 
 #pragma pack(push,1)
 union palette {
@@ -19,6 +21,8 @@ struct timer_struct {
 };
 #pragma pack(pop)
 
+#define ALSA        (0)
+#define PIPEWIRE    (1)
 struct video {
     //files
     bool file_drop_frame = false;
@@ -38,17 +42,20 @@ struct video {
     uint32_t audio_rate = 48000;
     uint32_t audio_channels = 2;
     int audio_samples_per_frame;
-    snd_pcm_hw_params_t* audio_params;
     int audio_bits     = 0;
     int audio_compress = 0;
     // int audio_calc_rate = 0;
 
-
     uint32_t seconds    = 2;
+
+
+    int audio_pipe     = ALSA;
     //ALSA
     snd_pcm_t* pcm_handle;
     snd_pcm_uframes_t frames;
-
+    snd_pcm_hw_params_t* audio_params;
+    //Pipewire
+    struct pw_data* data;
 
     int map_size;
     uint8_t* map_stream = NULL;
