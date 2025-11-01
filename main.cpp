@@ -542,6 +542,11 @@ void plot_fps(ImVec2 pos, float time)
     ImGui::PlotLines("###fps", values, 100, 0, "", -1.0f, 20.0f, ImVec2(250, 80.0f));
 }
 
+struct framerate {
+    uint64_t last_time  = 0;
+    uint64_t next_frame = 0;
+    int64_t diff_time   = 0;
+} fps_info;
 
 void video_player()
 {
@@ -600,9 +605,9 @@ void video_player()
         ImGui::Text("Frame #%d", video_buffer.frame_count);
     }
 
-    // instead of 
+    // instead of
     //  next_frame = curr_time + frame_time / speed
-    // you'd do more 
+    // you'd do more
     //  next_time += frame_time / speed
     //(and then adjust them for the correct initialization and handling pauses, etc.)
     // Another approach is
@@ -610,15 +615,13 @@ void video_player()
     //  have the amount of time remaining until you display the next frame,
     //  then when it hits 0 or goes negative you add the frame time to it
     uint64_t curr_time = io_nano_time();
-    static uint64_t last_time;
-    static uint64_t next_frame;
-    static int64_t diff_time = 0;
-    // diff_time = curr_time - last_time;
-    ImGui::Text("%lld", diff_time);
-    ImGui::Text("%.3f", 1000.0f/((float)diff_time/1'000'000.0));
+
+    // fps_info.diff_time = curr_time - fps_info.last_time;
+    ImGui::Text("%lld", fps_info.diff_time);
+    ImGui::Text("%.3f", 1000.0f/((float)fps_info.diff_time/1'000'000.0));
     timer_struct mve_timer = video_buffer.timer;
     int32_t frame_time = mve_timer.rate*mve_timer.subdivision*1000;
-    plot_fps(pos, 1000.0f/((float)diff_time/1'000'000.0));
+    plot_fps(pos, 1000.0f/((float)fps_info.diff_time/1'000'000.0));
 
 
     if (ImGui::Checkbox("VSync", &enable_vsync)) {
@@ -711,16 +714,15 @@ void video_player()
     }
 
 
-    if (!speed || curr_time <= next_frame || pause && chunk.info.type == CHUNK_video) {
+    if (!speed || curr_time <= fps_info.next_frame || pause && chunk.info.type == CHUNK_video) {
         if (step) {
             // bypass the return for one click (should be same as one frame)
         } else {
-            return;
-        }
+            return;}
     }
-    next_frame = next_frame + (uint64_t)(frame_time / speed);
-    diff_time = curr_time - last_time;
-    last_time = curr_time;
+    fps_info.next_frame = fps_info.next_frame + (uint64_t)(frame_time / speed);
+    fps_info.diff_time  = curr_time - fps_info.last_time;
+    fps_info.last_time  = curr_time;
 
 
     while (file_loaded)

@@ -50,13 +50,12 @@ struct video {
     uint32_t seconds    = 2;
 
 
-    int audio_pipe     = ALSA;
+    int audio_pipe     = PIPEWIRE;
     //ALSA
     snd_pcm_t* pcm_handle;
     snd_pcm_uframes_t frames;
     snd_pcm_hw_params_t* audio_params;
     //Pipewire
-    struct pw_data pipewire_data = {0};
 
     int map_size;
     uint8_t* map_stream = NULL;

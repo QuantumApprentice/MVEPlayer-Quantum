@@ -19,17 +19,25 @@ void registry_event_global(void* data, uint32_t id,
             uint32_t permissions, const char* type,
             uint32_t version, const struct spa_dict* props);
 
-
+#define DEFAULT_CHANNELS    (2)
+#define BUFFER_SIZE         (16*1024)
 #define DEFAULT_RATE        (44100)
 #define DEFAULT_VOLUME      (0.02f)
 #define DEFAULT_TONE        (440)
 #define DEFAULT_BITS        int16_t
 
-// struct pw_registry_events reg_events = {
-//     PW_VERSION_REGISTRY_EVENTS,
-//     .global = registry_event_global
-// };
+struct pw_data {
+    struct pw_main_loop* main_loop;
+    struct pw_loop*      loop;
+    struct pw_stream*    stream;
 
+    float accumulator;
+
+    struct spa_source* refill_event;
+
+    struct spa_ringbuffer ring;
+    float buff[BUFFER_SIZE * DEFAULT_CHANNELS];
+} pipewire_data = {0};
 
 //fills local buffer with tone generator
 void fill_f32(struct pw_data* d, uint32_t offset, int n_frames)
@@ -72,30 +80,14 @@ void do_refill(void* usr_data, uint64_t count)
     pw_main_loop_quit(data->main_loop);
 }
 
-/* our data processing function is in general:
- *
- *  struct pw_buffer *b;
- *  b = pw_stream_dequeue_buffer(stream);
- *
- *  .. generate stuff in the buffer ...
- *  In this case we read samples from a ringbuffer. The ringbuffer is
- *  filled up by another thread.
- *
- *  pw_stream_queue_buffer(stream, b);
-*/
 void on_process(void* userdata)
 {
-    // struct pw_data* d = (pw_data*)userdata;
-    struct pw_data* d = &video_buffer.pipewire_data;
+    struct pw_data* d = &pipewire_data;
     struct pw_buffer*  pw_b;
     struct spa_buffer* sp_b;
 
-    uint8_t* p;
     uint32_t idx, to_read, to_silence;
     int32_t avail, frames, stride;
-
-    // int c, frames, stride;
-    // DEFAULT_BITS* dst;               //might be assuming 16bit?
 
     if ((pw_b = pw_stream_dequeue_buffer(d->stream)) == NULL) {
         pw_log_warn("out of buffers: %m");
@@ -103,11 +95,7 @@ void on_process(void* userdata)
     }
 
     sp_b = pw_b->buffer;
-    // //might be assuming 16bit?
-    // if ((dst = (DEFAULT_BITS*)sp_b->datas[0].data) == NULL) {
-    //     return;
-    // }
-    if ((p = (uint8_t*)sp_b->datas[0].data) == NULL) {  //can't find buffer?
+    if (sp_b->datas[0].data == NULL) {  //can't find buffer? shared w/ringbuffer?
         return;
     }
 
@@ -128,13 +116,14 @@ void on_process(void* userdata)
     to_silence = frames - to_read;
 
     if (to_read > 0) {
-        //read data from ringbuffer? into d.buff
+        //read data INTO shared datas[0].data buffer from d.buff
+        //and apparently datas[0].data is shared with the ringbuffer
         spa_ringbuffer_read_data(
-            &d->ring,
+            &d->ring,   //apparently this isn't used in this version anyway
             d->buff,
             BUFFER_SIZE*stride,
             (idx % BUFFER_SIZE) * stride,
-            p,
+            sp_b->datas[0].data,
             to_read*stride
         );
         //update read pointer
@@ -142,10 +131,8 @@ void on_process(void* userdata)
     }
     if (to_silence > 0) {
         //rest o buffer silenced
-        memset(SPA_PTROFF(p, to_read*stride, void),0,to_silence*stride);
+        memset(SPA_PTROFF(sp_b->datas[0].data, to_read*stride, void),0,to_silence*stride);
     }
-
-    
 
     sp_b->datas[0].chunk->offset = 0;
     sp_b->datas[0].chunk->stride = stride;
@@ -179,7 +166,7 @@ void init_audio_pipewire(uint8_t* buff, uint8_t version)
     printf("headers version: %s\n", pw_get_headers_version());
     printf("library version: %s\n", pw_get_library_version());
 
-    struct pw_data* d = &video_buffer.pipewire_data;
+    struct pw_data* d = &pipewire_data;
     const struct spa_pod* params[1];
     uint8_t audio_buff[1024];
     struct spa_pod_builder pod_b = SPA_POD_BUILDER_INIT(audio_buff,sizeof(audio_buff));
@@ -203,7 +190,7 @@ void init_audio_pipewire(uint8_t* buff, uint8_t version)
 
     d->stream = pw_stream_new_simple(
         d->loop,
-        "audio-src-ring",
+        "this is an arbitrary string, probably not needed",
         props,
         &stream_events,
         &d
@@ -244,7 +231,7 @@ void init_audio_pipewire(uint8_t* buff, uint8_t version)
 
 void shutdown_audio_pipewire()
 {
-    struct pw_data* d = &video_buffer.pipewire_data;
+    struct pw_data* d = &pipewire_data;
 
     pw_stream_destroy(d->stream);
     pw_loop_destroy_source(d->loop, d->refill_event);
@@ -299,7 +286,7 @@ void parse_audio_frame_pipewire(uint8_t* buff, opcodeinfo op)
         }
     // }
 
-    pw_main_loop_run(video_buffer.pipewire_data.main_loop);
+    pw_main_loop_run(pipewire_data.main_loop);
 }
 
 
