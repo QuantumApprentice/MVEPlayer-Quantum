@@ -614,7 +614,6 @@ void video_player()
     //  instead of having an absolute time,
     //  have the amount of time remaining until you display the next frame,
     //  then when it hits 0 or goes negative you add the frame time to it
-    uint64_t curr_time = io_nano_time();
 
     // fps_info.diff_time = curr_time - fps_info.last_time;
     ImGui::Text("%lld", fps_info.diff_time);
@@ -714,11 +713,13 @@ void video_player()
     }
 
 
+    uint64_t curr_time = io_nano_time();
     if (!speed || curr_time <= fps_info.next_frame || pause && chunk.info.type == CHUNK_video) {
         if (step) {
             // bypass the return for one click (should be same as one frame)
         } else {
-            return;}
+            return;
+        }
     }
     fps_info.next_frame = fps_info.next_frame + (uint64_t)(frame_time / speed);
     fps_info.diff_time  = curr_time - fps_info.last_time;
