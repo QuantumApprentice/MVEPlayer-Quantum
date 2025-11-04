@@ -39,7 +39,7 @@ Chunk read_chunk(FILE* fileptr);
 bool parse_chunk(Chunk chunk);
 int get_filesize(FILE* fileptr);
 void video_player();
-bool show_block_info(ImVec2 pos, float scale);
+void show_block_info(ImVec2 pos, float scale);
 
 
 
@@ -373,12 +373,21 @@ bool load_file(char* filename)
     return true;
 }
 
-uint8_t* block_select(uint8_t* selected, float scale, ImVec2 pos, bool show)
+void block_select(ImVec2 pos, float scale)
 {
-    //TODO: clean this shit up
+    static bool show = false;
+    float x_offset = pos.x;
+    float y_offset = pos.y;
+
+    ImGuiIO& io = ImGui::GetIO();
+    float mouse_x = io.MousePos.x - x_offset;
+    float mouse_y = io.MousePos.y - y_offset;
+
     int block_w      = video_buffer.block_w;
     int block_h      = video_buffer.block_h;
     static int total = 0;
+
+    static uint8_t* selected;
     if (total != block_w*block_h) {
         total = block_w*block_h;
         if (!selected) {
@@ -395,7 +404,7 @@ uint8_t* block_select(uint8_t* selected, float scale, ImVec2 pos, bool show)
             char num[4];
             snprintf(num, 4, "%03d", cur_block);
             ImGui::PushID(cur_block);
-            ImGui::SetCursorPos(ImVec2(pos.x+400 + x*8*scale , pos.y+180 + y*8*scale));
+            ImGui::SetCursorPos(ImVec2(x_offset + x*8*scale , y_offset + y*8*scale));
             if (ImGui::Selectable(show ? num : "###", selected[cur_block] != 0, 0, ImVec2(8*scale, 6*scale)))
             {
                 // Toggle clicked cell - clear all cells and set single selected
@@ -405,9 +414,6 @@ uint8_t* block_select(uint8_t* selected, float scale, ImVec2 pos, bool show)
                 // }
             }
 
-            ImGuiIO& io = ImGui::GetIO();
-            float mouse_x = io.MousePos.x - pos.x - 400;
-            float mouse_y = io.MousePos.y - pos.y - 180;
 
             if (mouse_x >= 0 && mouse_y >= 0 && video_buffer.map_stream) {
                 int block_num = (int)(mouse_y/(8*scale))*video_buffer.block_w + mouse_x/8/scale;
@@ -425,9 +431,15 @@ uint8_t* block_select(uint8_t* selected, float scale, ImVec2 pos, bool show)
         }
     }
 
-    return selected;
+    ImGui::SetCursorPosX(x_offset);
+    if (ImGui::Button("Show Block #")) {
+        show = !show;
+    }
+    show_block_info(pos, scale);
+
 }
 
+//palette can change during playback
 void show_palette(ImVec2 pos)
 {
     ImGui::SetCursorPos(ImVec2({pos.x, pos.y + 95}));
@@ -461,6 +473,7 @@ void plot_chunk_usage(ImVec2 pos)
     ImGui::PlotLines("###vcpf", values, 100, 0, overlay, -1.0f, 10.0f, ImVec2(0, 80.0f));
 }
 
+//left and right audio channels
 void plot_audio_waveform(ImVec2 pos)
 {
     ImGui::SetCursorPosX(pos.x+400);
@@ -488,49 +501,58 @@ void plot_audio_waveform(ImVec2 pos)
 
 }
 
-bool show_block_info(ImVec2 pos, float scale)
+void show_block_info(ImVec2 pos, float scale)
 {
+    float x = pos.x;
+    float y = pos.y;
+
     ImGuiIO& io = ImGui::GetIO();
-    float mouse_x, mouse_y;
-    if (io.MousePos.x > (pos.x + 400) && io.MousePos.x < (pos.x + 400 + video_buffer.render_w*scale)
-    && (io.MousePos.y > pos.y && io.MousePos.y < (pos.y + video_buffer.render_h*scale))) {
-        mouse_x = io.MousePos.x - pos.x - 400;
-        mouse_y = io.MousePos.y - pos.y;
+    float mouse_x = io.MousePos.x - x;
+    float mouse_y = io.MousePos.y - y;
+
+
+    if ((io.MousePos.x > x) && io.MousePos.x < (x + video_buffer.render_w*scale)
+    &&  (io.MousePos.y > y) && io.MousePos.y < (y + video_buffer.render_h*scale)) {
+        mouse_x = io.MousePos.x - pos.x;
+        mouse_y = io.MousePos.y - y;
     } else {
         mouse_x = -1;
         mouse_y = -1;
     }
 
+    ImGui::SetCursorPosX(x);
     if (mouse_x >= 0 && mouse_y >= 0 && video_buffer.map_stream) {
         int block_num = (int)(mouse_y/(8*scale))*video_buffer.block_w + mouse_x/8/scale;
-        // int block_enc = (video_buffer.map_stream[block_num] >> 4*(block_num%2)) & 0x0F;
-        int block_enc = video_buffer.map_stream[block_num/2];
-
-        ImGui::Text("Mouse x: %g y: %g", mouse_x, mouse_y);
-        ImGui::Text("Block #%d", block_num);
-        // ImGui::Text("which encode? %d", block_num%2);
-        ImGui::Text("Encode type: %02x", block_enc);
-    } else {
+        int block_enc = video_buffer.map_stream[block_num/2] & (0x0f << ((block_num & 0x01)*4));
+        ImGui::Text(
+            "Mouse x: %g y: %g\n"
+            "Block #%d\n"
+            "Encode type: %02x\n"
+            ,
+            mouse_x, mouse_y,
+            block_num, block_enc
+        );
+    }  else {
         ImGui::Text("Mouse Out of Bounds");
         ImGui::Dummy({0,ImGui::GetTextLineHeight()*2.35f});
     }
-    static bool show = false;
-    if (ImGui::Button("Show Block #")) {
-        show = !show;
-    }
-    return show;
 }
 
 void show_audio_info(ImVec2 pos)
 {
-    ImGui::SetCursorPos({pos.x+260,pos.y});
-    ImGui::Text("Audio Rate: %dHz", video_buffer.audio_rate);
-    ImGui::SetCursorPosX({pos.x+260});
-    ImGui::Text("Channels: %d %s", video_buffer.audio_channels, video_buffer.audio_channels == 1 ? "(Mono)" : "(Stereo)");
-    ImGui::SetCursorPosX({pos.x+260});
-    ImGui::Text("Bits per Channel:%d", video_buffer.audio_bits);
-    ImGui::SetCursorPosX({pos.x+260});
-    ImGui::Text(video_buffer.audio_compress ? "Compression On" : "Compression Off");
+    float x = pos.x + 260;
+    float y = pos.y;
+    ImGui::SetCursorPos({x,y});
+    ImGui::Text(
+        "Audio Rate: %dHz\n"
+        "Channels: %d %s\n"
+        "Bits per Channel:%d\n"
+        "Compression %s\n"
+        , video_buffer.audio_rate
+        , video_buffer.audio_channels, video_buffer.audio_channels == 1 ? "(Mono)" : "(Stereo)"
+        , video_buffer.audio_bits
+        , video_buffer.audio_compress ? "On" : "Off"
+    );
 }
 
 void plot_fps(ImVec2 pos, float time)
@@ -542,21 +564,44 @@ void plot_fps(ImVec2 pos, float time)
     ImGui::PlotLines("###fps", values, 100, 0, "", -1.0f, 20.0f, ImVec2(250, 80.0f));
 }
 
+void show_video(ImVec2 pos, float scale)
+{
+    float x = pos.x + 400;
+    float y = ImGui::GetCursorPosY();
+
+    ImVec2 uv_min = {0, 0};
+    ImVec2 uv_max = {1.0, 1.0};
+    int width   = video_buffer.render_w;
+    int height  = video_buffer.render_h;
+
+    ImGui::SetCursorPosX(x);
+    ImVec2 size = ImVec2((float)(width * scale), (float)(height * scale));
+    ImGui::Image(
+        video_buffer.video_texture,
+        size, uv_min, uv_max
+    );
+
+    block_select({x,y}, scale);
+}
+
 struct framerate {
     uint64_t last_time  = 0;
     uint64_t next_frame = 0;
     int64_t diff_time   = 0;
+    int32_t frame_time  = 0;
+    float speed         = 1.0f;
+    timer_struct mve_timer = {};
 } fps_info;
 
 void video_player()
 {
+    uint64_t curr_time = io_nano_time();
     static bool file_loaded     = false;
     static bool render_on_chunk = false;        //TODO: do I want this anymore? currently unused
     ImVec2 pos = ImGui::GetCursorPos();
     static Chunk chunk;
     static bool pause = false;
     static int which_file = 0;
-    static float speed = 1.0f;
     struct file_list { char filename[32]; } files[3] = {
         "../../testing/FO1/IPLOGO.MVE",
         "../../testing/FO2/IPLOGO.MVE",
@@ -576,7 +621,8 @@ void video_player()
     }
     if (ImGui::Button("Play MVE")) {
         file_loaded = load_file(filename);
-        // next_frame = frame_time / speed;
+        // fps_info.mve_timer = video_buffer.timer;
+        fps_info.next_frame = curr_time;// fps_info.frame_time / fps_info.speed;
     }
 
     if (video_buffer.timer.rate != 0) {
@@ -618,8 +664,11 @@ void video_player()
     // fps_info.diff_time = curr_time - fps_info.last_time;
     ImGui::Text("%lld", fps_info.diff_time);
     ImGui::Text("%.3f", 1000.0f/((float)fps_info.diff_time/1'000'000.0));
-    timer_struct mve_timer = video_buffer.timer;
-    int32_t frame_time = mve_timer.rate*mve_timer.subdivision*1000;
+    // int32_t frame_time = mve_timer.rate*mve_timer.subdivision*1000;
+
+    fps_info.mve_timer = video_buffer.timer;
+    fps_info.frame_time = fps_info.mve_timer.rate*fps_info.mve_timer.subdivision*1000;
+
     plot_fps(pos, 1000.0f/((float)fps_info.diff_time/1'000'000.0));
 
 
@@ -628,7 +677,7 @@ void video_player()
     }
     ImGui::SameLine();
     ImGui::PushItemWidth(135);
-    ImGui::SliderFloat("Speed", &speed, 0.0f, 10.0f, "%.1f");
+    ImGui::SliderFloat("Speed", &fps_info.speed, 0.0f, 10.0f, "%.1f");
     ImGui::PopItemWidth();
 
     static float scale = 1;                        //video_buffer.scale;
@@ -648,10 +697,10 @@ void video_player()
     if (ImGui::DragFloat("V", &video_buffer.audio_volume, .001f)) {
         // fill_audio_alsa(video_buffer.audio_freq);
     }
-    ImGui::SameLine();
-    if (ImGui::DragInt("F", &video_buffer.audio_freq)) {
-        // fill_audio_alsa(video_buffer.audio_freq);
-    }
+    // ImGui::SameLine();
+    // if (ImGui::DragInt("F", &video_buffer.audio_freq)) {
+    //     // fill_audio_alsa(video_buffer.audio_freq);
+    // }
     ImGui::PopItemWidth();
 
 
@@ -673,7 +722,6 @@ void video_player()
     ImGui::Text("block  w: %d  h: %d", video_buffer.block_w,  video_buffer.block_h);
 
 
-    bool show = show_block_info(pos, scale);
 
 
     if (rerender) {
@@ -687,46 +735,41 @@ void video_player()
 
     //image
     if (video_buffer.pxls) {
-        ImGui::SetCursorPosX(pos.x+400);
-        ImVec2 uv_min = {0, 0};
-        ImVec2 uv_max = {1.0, 1.0};
-        int width   = video_buffer.render_w;
-        int height  = video_buffer.render_h;
-        ImVec2 size = ImVec2((float)(width * scale), (float)(height * scale));
-        ImGui::Image(
-            video_buffer.video_texture,
-            size, uv_min, uv_max
-        );
-        //TODO: clean this shit up
-        static uint8_t* selected;
-        selected = block_select(selected, scale, pos, show);
+        show_video(pos,scale);
     } else {
-        ImGui::SameLine();
+        // ImGui::SameLine();
         if (!file_loaded) {
+            ImGui::SetCursorPosX(pos.x+600);
             ImGui::Text("Unable to open %s", filename);
         }
     }
 
     if (!file_loaded) {
-        ImGui::SetCursorPos({pos.x + 400, pos.y-20});
+        // ImGui::SetCursorPos({pos.x + 400, pos.y-20});
+        ImGui::SetCursorPosX(pos.x+600);
         ImGui::Text("File closed");
     }
 
 
-    uint64_t curr_time = io_nano_time();
-    if (!speed || curr_time <= fps_info.next_frame || pause && chunk.info.type == CHUNK_video) {
+    // uint64_t curr_time = io_nano_time();
+    if (!fps_info.speed                     ||
+        curr_time <= fps_info.next_frame    ||
+        (pause && chunk.info.type == CHUNK_video)) {
         if (step) {
             // bypass the return for one click (should be same as one frame)
         } else {
             return;
         }
     }
-    fps_info.next_frame = fps_info.next_frame + (uint64_t)(frame_time / speed);
+    fps_info.next_frame = fps_info.next_frame + (uint64_t)(fps_info.frame_time / fps_info.speed);
     fps_info.diff_time  = curr_time - fps_info.last_time;
     fps_info.last_time  = curr_time;
 
 
-    while (file_loaded)
+
+
+
+    while (file_loaded)// && curr_time >= fps_info.next_frame)
     {
         if (chunk.chunk) {
             free(chunk.chunk);
