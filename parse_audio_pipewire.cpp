@@ -231,7 +231,7 @@ void init_audio_pipewire(uint8_t* buff, uint8_t version)
 
     //get size to allocate
     // int fps = 1000000.0f/(video_buffer.timer.rate*video_buffer.timer.subdivision);
-    int fps         = 15;                          //= 15;
+    int fps         = 15;
     int samples_per_frame = sample_rate/fps;
     video_buffer.audio_samples_per_frame = samples_per_frame;
 
@@ -308,7 +308,6 @@ void init_audio_pipewire(uint8_t* buff, uint8_t version)
         params, 1
     );
 
-    // pw_main_loop_run(d->main_loop);
 }
 
 void shutdown_audio_pipewire()
@@ -321,53 +320,8 @@ void shutdown_audio_pipewire()
     pw_deinit();
 }
 
-void parse_audio_frame_pipewire(uint8_t* buff, opcodeinfo op)
+void parse_audio_frame_pipewire()
 {
-    audio_frame* frame = (audio_frame*)buff;
-    //TODO: docs are wrong for frame.length
-    //      actual input length is frame.length/(bytes per channel)
-    //      actual output length is frame.length
-
-    // video_buffer.audio_calc_rate += frame->length;
-    if (video_buffer.audio_compress == 0) {
-        // memcpy(video_buffer.audio_buff, frame->data, op.size-8);
-        int8_t* audio_buff_8 = (int8_t*)video_buffer.audio_buff;
-        if (video_buffer.audio_bits == 8) {
-            if (video_buffer.audio_channels == 1) {
-                for (int i = 0; i < op.size-8; i++)
-                {
-                    int8_t sample = frame->data[i];
-                    audio_buff_8[i] = sample*video_buffer.audio_volume/8;
-                }
-            }
-            if (video_buffer.audio_channels == 2) {
-                for (int i = 0; i < (op.size-8)/2; i++)
-                {
-                    int8_t l_curr = frame->data[i*2 +0];
-                    int8_t r_curr = frame->data[i*2 +1];
-                    audio_buff_8[i*2 +0] = l_curr*video_buffer.audio_volume/8;
-                    audio_buff_8[i*2 +1] = r_curr*video_buffer.audio_volume/8;
-                }
-            }
-        }
-        // for (int i = 0; i < op.size-8; i++)
-        // {
-        //     int16_t sample = *(int16_t*)frame->data[i];
-        //     video_buffer.audio_buff[i] = sample*video_buffer.audio_volume/8;
-        // }
-    }
-
-    // if (video_buffer.audio_compress == 1) {
-        uint8_t decompress_buff[65536] = {0};
-        memcpy(decompress_buff, frame->data, op.size-8);
-        if (video_buffer.audio_bits == 8 ) {
-            decompress_8(decompress_buff, op.size-8);
-        }
-        if (video_buffer.audio_bits == 16) {
-            decompress_16(decompress_buff, op.size-8);
-        }
-    // }
-
     pw_main_loop_run(pipewire_data.main_loop);
 }
 

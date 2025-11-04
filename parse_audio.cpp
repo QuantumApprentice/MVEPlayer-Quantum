@@ -1,6 +1,9 @@
 #include "parse_video.h"
 #include "parse_audio.h"
 
+#include "parse_audio_alsa.h"
+#include "parse_audio_pipewire.h"
+
 // BakerStaunch
 //  You would probably use an approach like this
 //  to make it more generic across different audio APIs
@@ -31,6 +34,16 @@ int delta_table[256] = {
       -32,    -31,    -30,    -29,    -28,    -27,    -26,    -25,    -24,    -23,    -22,    -21,    -20,    -19,    -18,    -17,
       -16,    -15,    -14,    -13,    -12,    -11,    -10,     -9,     -8,     -7,     -6,     -5,     -4,     -3,     -2,     -1
 };
+
+
+void init_audio(uint8_t* buff, uint8_t version)
+{
+    if (video_buffer.audio_pipe == ALSA) {
+        init_audio_alsa(buff, version);
+    } else {
+        init_audio_pipewire(buff, version);
+    }
+}
 
 
 //stereo
@@ -118,4 +131,71 @@ void decompress_16(uint8_t* buff, int len)
         }
     }
 
+}
+
+void parse_audio_frame(uint8_t* buff, opcodeinfo op)
+{
+    audio_frame* frame = (audio_frame*)buff;
+    //TODO: docs are wrong for frame.length
+    //      actual input length is frame.length/(bytes per channel)
+    //      actual output length is frame.length
+
+    // video_buffer.audio_calc_rate += frame->length;
+    if (video_buffer.audio_compress == 0) {
+        // memcpy(video_buffer.audio_buff, frame->data, op.size-8);
+        int8_t* audio_buff_8 = (int8_t*)video_buffer.audio_buff;
+        if (video_buffer.audio_bits == 8) {
+            if (video_buffer.audio_channels == 1) {
+                for (int i = 0; i < op.size-8; i++)
+                {
+                    int8_t sample = frame->data[i];
+                    audio_buff_8[i] = sample*video_buffer.audio_volume/8;
+                }
+            }
+            if (video_buffer.audio_channels == 2) {
+                for (int i = 0; i < (op.size-8)/2; i++)
+                {
+                    int8_t l_curr = frame->data[i*2 +0];
+                    int8_t r_curr = frame->data[i*2 +1];
+                    audio_buff_8[i*2 +0] = l_curr*video_buffer.audio_volume/8;
+                    audio_buff_8[i*2 +1] = r_curr*video_buffer.audio_volume/8;
+                }
+            }
+        }
+        // for (int i = 0; i < op.size-8; i++)
+        // {
+        //     int16_t sample = *(int16_t*)frame->data[i];
+        //     video_buffer.audio_buff[i] = sample*video_buffer.audio_volume/8;
+        // }
+    }
+
+    // if (video_buffer.audio_compress == 1) {
+        uint8_t decompress_buff[65536] = {0};
+        memcpy(decompress_buff, frame->data, op.size-8);
+        if (video_buffer.audio_bits == 8 ) {
+            decompress_8(decompress_buff, op.size-8);
+        }
+        if (video_buffer.audio_bits == 16) {
+            decompress_16(decompress_buff, op.size-8);
+        }
+    // }
+
+
+
+
+
+    if (video_buffer.audio_pipe == 0) {
+        parse_audio_frame_alsa(buff, op);
+    } else {
+        parse_audio_frame_pipewire();
+    }
+}
+
+void shutdown_audio()
+{
+    if (video_buffer.audio_pipe == ALSA) {
+        shutdown_audio_alsa();
+    } else {
+        shutdown_audio_pipewire();
+    }
 }

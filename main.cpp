@@ -20,8 +20,7 @@ bool enable_vsync     = true;
 
 #include "parse_opcodes.h"
 #include "parse_video.h"
-#include "parse_audio_alsa.h"
-#include "parse_audio_pipewire.h"
+#include "parse_audio.h"
 
 #include "io_Platform.h"
 #include "io_Timer.h"
@@ -564,9 +563,21 @@ void plot_fps(ImVec2 pos, float time)
     ImGui::PlotLines("###fps", values, 100, 0, "", -1.0f, 20.0f, ImVec2(250, 80.0f));
 }
 
+void video_stats()
+{
+    ImGui::Text(
+        "window w: %d  h: %d\n"
+        "render w: %d  h: %d\n"
+        "block  w: %d  h: %d\n"
+        , video_buffer.window_w, video_buffer.window_h
+        , video_buffer.render_w, video_buffer.render_h
+        , video_buffer.block_w,  video_buffer.block_h
+    );
+}
+
 void show_video(ImVec2 pos, float scale)
 {
-    float x = pos.x + 400;
+    float x = pos.x;
     float y = ImGui::GetCursorPosY();
 
     ImVec2 uv_min = {0, 0};
@@ -581,6 +592,8 @@ void show_video(ImVec2 pos, float scale)
         size, uv_min, uv_max
     );
 
+    ImGui::SameLine();
+    video_stats();
     block_select({x,y}, scale);
 }
 
@@ -621,7 +634,6 @@ void video_player()
     }
     if (ImGui::Button("Play MVE")) {
         file_loaded = load_file(filename);
-        // fps_info.mve_timer = video_buffer.timer;
         fps_info.next_frame = curr_time;// fps_info.frame_time / fps_info.speed;
     }
 
@@ -680,7 +692,6 @@ void video_player()
     ImGui::SliderFloat("Speed", &fps_info.speed, 0.0f, 10.0f, "%.1f");
     ImGui::PopItemWidth();
 
-    static float scale = 1;                        //video_buffer.scale;
     ImGui::PushItemWidth(200);
     ImGui::Combo("file", &which_file,
         video_buffer.filename ? video_buffer.filename :
@@ -688,10 +699,11 @@ void video_player()
         "FO2 IPLOGO.MVE\0"
         "MR  final.mve\0"
     );
+
+    static float scale = 1;                        //video_buffer.scale;
     ImGui::DragFloat("Zoom", &scale, .01, 0, 3.0);
 
 
-    // ImGui::Text("total: %d", video_buffer.audio_calc_rate);
     ImGui::PopItemWidth();
     ImGui::PushItemWidth(100);
     if (ImGui::DragFloat("V", &video_buffer.audio_volume, .001f)) {
@@ -711,19 +723,11 @@ void video_player()
         }
 #endif
 
-    //buttons
-    bool rerender = false;
-    rerender = filter_buttons();
+
+    bool rerender = filter_buttons();
     if (ImGui::Button("re-render frame")) {
         rerender = true;
     }
-    ImGui::Text("window w: %d  h: %d", video_buffer.window_w, video_buffer.window_h);
-    ImGui::Text("render w: %d  h: %d", video_buffer.render_w, video_buffer.render_h);
-    ImGui::Text("block  w: %d  h: %d", video_buffer.block_w,  video_buffer.block_h);
-
-
-
-
     if (rerender) {
         parse_chunk(chunk);
     }
@@ -733,11 +737,10 @@ void video_player()
     plot_chunk_usage(pos);
     plot_audio_waveform(pos);
 
-    //image
+    //video
     if (video_buffer.pxls) {
-        show_video(pos,scale);
+        show_video({pos.x+400,pos.y},scale);
     } else {
-        // ImGui::SameLine();
         if (!file_loaded) {
             ImGui::SetCursorPosX(pos.x+600);
             ImGui::Text("Unable to open %s", filename);
@@ -745,13 +748,11 @@ void video_player()
     }
 
     if (!file_loaded) {
-        // ImGui::SetCursorPos({pos.x + 400, pos.y-20});
         ImGui::SetCursorPosX(pos.x+600);
         ImGui::Text("File closed");
     }
 
 
-    // uint64_t curr_time = io_nano_time();
     if (!fps_info.speed                     ||
         curr_time <= fps_info.next_frame    ||
         (pause && chunk.info.type == CHUNK_video)) {
@@ -845,11 +846,7 @@ bool parse_chunk(Chunk chunk)
         break;
     case CHUNK_shutdown:
         printf("shutting down\n");
-        if (video_buffer.audio_pipe == 0) {
-            shutdown_audio_alsa();
-        } else {
-            shutdown_audio_pipewire();
-        }
+        shutdown_audio();
         //TODO: handle shutdown
         break;
     case CHUNK_end:

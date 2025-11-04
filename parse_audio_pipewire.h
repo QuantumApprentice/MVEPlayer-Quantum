@@ -4,5 +4,5 @@
 
 
 void init_audio_pipewire(uint8_t* buff, uint8_t version);
-void parse_audio_frame_pipewire(uint8_t* buff, opcodeinfo version);
+void parse_audio_frame_pipewire();
 void shutdown_audio_pipewire();

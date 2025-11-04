@@ -244,56 +244,9 @@ void fill_audio_alsa(int frequency)
 //      bakerstaunch
 //      snd_pcm_avail_delay
 //      snd_pcm_delay
-void parse_audio_frame_alsa(uint8_t* buffer, opcodeinfo op)
+void parse_audio_frame_alsa(uint16_t buff_len)
 {
-    audio_frame* frame = (audio_frame*)buffer;
-    //TODO: docs are wrong for frame.length
-    //      actual input length is frame.length/(bytes per channel)
-    //      actual output length is frame.length
-
-    // video_buffer.audio_calc_rate += frame->length;
-    if (video_buffer.audio_compress == 0) {
-        // memcpy(video_buffer.audio_buff, frame->data, op.size-8);
-        int8_t* audio_buff_8 = (int8_t*)video_buffer.audio_buff;
-        if (video_buffer.audio_bits == 8) {
-            if (video_buffer.audio_channels == 1) {
-                for (int i = 0; i < op.size-8; i++)
-                {
-                    int8_t sample = frame->data[i];
-                    audio_buff_8[i] = sample*video_buffer.audio_volume/8;
-                }
-            }
-            if (video_buffer.audio_channels == 2) {
-                for (int i = 0; i < (op.size-8)/2; i++)
-                {
-                    int8_t l_curr = frame->data[i*2 +0];
-                    int8_t r_curr = frame->data[i*2 +1];
-                    audio_buff_8[i*2 +0] = l_curr*video_buffer.audio_volume/8;
-                    audio_buff_8[i*2 +1] = r_curr*video_buffer.audio_volume/8;
-                }
-            }
-        }
-        // for (int i = 0; i < op.size-8; i++)
-        // {
-        //     int16_t sample = *(int16_t*)frame->data[i];
-        //     video_buffer.audio_buff[i] = sample*video_buffer.audio_volume/8;
-        // }
-    }
-
-    // if (video_buffer.audio_compress == 1) {
-        uint8_t decompress_buff[65536] = {0};
-        memcpy(decompress_buff, frame->data, op.size-8);
-        if (video_buffer.audio_bits == 8 ) {
-            decompress_8(decompress_buff, op.size-8);
-        }
-        if (video_buffer.audio_bits == 16) {
-            decompress_16(decompress_buff, op.size-8);
-        }
-    // }
-
-
-
-    int len = frame->length / 4;  //total number of samples in this chunk
+    int len = buff_len / 4;  //total number of samples in this chunk
     int16_t* audio_buff = (int16_t*)video_buffer.audio_buff;
 
     uint32_t tmp;
@@ -308,10 +261,6 @@ void parse_audio_frame_alsa(uint8_t* buffer, opcodeinfo op)
         int wut = snd_pcm_avail_delay(video_buffer.pcm_handle, &avail, &delay);
         printf("time: %u\t delay: %d\t avail: %d\n", io_nano_time(), delay, avail);
         printf("handle: %0x buff[0-3]: %0x length: %d\n", video_buffer.pcm_handle, *(int32_t*)audio_buff, len);
-
-        // if (delay > len) {
-        //     break;
-        // }
 
         //TODO: static bool is temporary fix to get the buffer
         //      to be filled correctly at least for the first frames
