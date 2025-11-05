@@ -348,7 +348,12 @@ bool load_file(char* filename)
         video_buffer.back_buffer = NULL;
     }
     if (video_buffer.audio_buff) {
-        shutdown_audio();
+        //TODO: what should I do with this?
+        //      -I like alsa's behavior with this
+        //      but pipewire just seems like ass
+        //      -at least I want to restart quick
+        //      instead of waiting for buffer to empty
+        // shutdown_audio();
     }
 
     video_buffer.fileptr = open_file(filename);
@@ -846,8 +851,8 @@ bool parse_chunk(Chunk chunk)
         break;
     case CHUNK_shutdown:
         printf("shutting down\n");
-        shutdown_audio();
         //TODO: handle shutdown
+        shutdown_audio();
         break;
     case CHUNK_end:
         printf("end of file\n");

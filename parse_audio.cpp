@@ -5,6 +5,7 @@
 #include "parse_audio_pipewire.h"
 
 extern video video_buffer;
+struct audio_handle audio;
 
 // BakerStaunch
 //  You would probably use an approach like this
@@ -40,7 +41,7 @@ int delta_table[256] = {
 
 void init_audio(uint8_t* buff, uint8_t version)
 {
-        #pragma pack(push,1)
+    #pragma pack(push,1)
     struct audio_info_v0 {
         int16_t unk;
         int16_t flags;
@@ -214,8 +215,18 @@ void decompress_16(uint8_t* buff, int len)
 
 }
 
+#pragma pack(push,1)
+struct audio_frame {
+    uint16_t index;
+    uint16_t mask;
+    uint16_t length;
+    uint8_t data[];
+};
+#pragma pack(pop)
+
 void parse_audio_frame(uint8_t* buff, opcodeinfo op)
 {
+
     audio_frame* frame = (audio_frame*)buff;
     //TODO: docs are wrong for frame.length
     //      actual input length is frame.length/(bytes per channel)
