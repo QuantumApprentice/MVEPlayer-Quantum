@@ -83,8 +83,8 @@ void do_refill(void* usr_data, uint64_t count)
     spa_assert(filled <= BUFFER_SIZE);
 
     avail = BUFFER_SIZE - filled;
-    // fill_f32(data, idx, avail);
 
+    // fill_f32(data, idx, avail);
     fill_int16(data, idx, avail);
 
 
@@ -173,81 +173,8 @@ void do_quit(void* userdata, int sig_num)
 }
 
 //equivalent to main() in pipewire examples
-void init_audio_pipewire(uint8_t* buff, uint8_t version)
+void init_audio_pipewire()
 {
-    #pragma pack(push,1)
-    struct audio_info_v0 {
-        int16_t unk;
-        int16_t flags;
-        int16_t sample_rate;
-        int16_t min_buff_len;
-    } v0;
-    struct audio_info_v1 {
-        int16_t unk;
-        int16_t flags;
-        int16_t sample_rate;
-        int32_t min_buff_len;
-    } v1;
-    #pragma pack(pop)
-
-    int16_t unk;
-    int16_t flags;
-    int16_t sample_rate;
-    int32_t min_buff_len;
-
-    if (version == 0) {
-        memcpy(&v0, buff, sizeof(v0));
-        unk          = v0.unk;
-        flags        = v0.flags;
-        sample_rate  = v0.sample_rate;
-        min_buff_len = v0.min_buff_len;
-    }
-    if (version == 1) {
-        memcpy(&v1, buff, sizeof(v1));
-        unk          = v1.unk;
-        flags        = v1.flags;
-        sample_rate  = v1.sample_rate;
-        min_buff_len = v1.min_buff_len;
-    }
-
-    int channels = 1;   //TODO: might need to experiment when converting mono to stereo
-    int bits     = 8;
-    int compress = false;
-    if (flags & 0x1) {   //0=mono, 1=stereo
-        channels = 2;
-    }
-    if (flags & 0x2) {   //0=8-bit, 1=16-bit
-        bits     = 16;
-        // bitsWide = SND_PCM_FORMAT_S16_LE;
-    }
-    if (flags & 0x4) {   //using compression
-        compress = true;
-    }
-
-    video_buffer.audio_channels = channels;
-    video_buffer.audio_rate     = sample_rate;
-    video_buffer.audio_bits     = bits;
-    video_buffer.audio_compress = compress;
-
-    //get size to allocate
-    // int fps = 1000000.0f/(video_buffer.timer.rate*video_buffer.timer.subdivision);
-    int fps         = 15;
-    int samples_per_frame = sample_rate/fps;
-    video_buffer.audio_samples_per_frame = samples_per_frame;
-
-    int buff_size;
-    if (min_buff_len > 0) {
-        buff_size = min_buff_len;
-    } else {
-        buff_size = samples_per_frame;
-    }
-    //allocate buffer
-    if (!video_buffer.audio_buff) {
-        video_buffer.audio_buff = (int16_t*)calloc(buff_size*sizeof(int16_t), 1);
-    }
-    video_buffer.audio_buff_size = buff_size;
-
-
     pw_init(0, NULL);
 
     printf("pipewire initialized\n");
@@ -267,7 +194,6 @@ void init_audio_pipewire(uint8_t* buff, uint8_t version)
 
     spa_ringbuffer_init(&d->ring);
     d->refill_event = pw_loop_add_event(d->loop, do_refill, d);
-    // do_refill(d,0);        //prefill
 
     struct pw_properties* props = pw_properties_new(
         PW_KEY_MEDIA_TYPE,     "Audio",

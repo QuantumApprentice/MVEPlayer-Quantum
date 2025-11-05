@@ -36,15 +36,16 @@ struct video {
     int pitch;
 
     //audio
-    int16_t* audio_buff = NULL;
-    int audio_buff_size = 0;
-    float audio_volume  = 0.5f;
-    int audio_freq      = 210;
-    uint32_t audio_rate = 48000;
+    int16_t* audio_buff    = NULL;
+    int audio_buff_size    = 0;
+    int audio_min_buff_len = 0;
+    float audio_volume     = 0.5f;
+    int audio_freq         = 210;
+    uint32_t audio_rate    = 48000;
     uint32_t audio_channels = 2;
     int audio_samples_per_frame;
-    int audio_bits     = 0;
-    int audio_compress = 0;
+    int audio_bits         = 0;
+    int audio_compress     = 0;
     // int audio_calc_rate = 0;
 
     uint32_t seconds    = 2;
@@ -93,7 +94,7 @@ struct video {
         true,       // 3 // cornerCopy_0x03
         true,       // 4 // symmetricCopy_0x04
         true,       // 5 // symmetricCopy_0x05
-        true,       // 6 // no-op
+        true,       // 6 // no-op?
         true,       // 7 // pattern_0x07
         true,       // 8 // pattern_0x08
         true,       // 9 // pattern_0x09

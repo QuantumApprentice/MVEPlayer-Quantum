@@ -348,7 +348,7 @@ bool load_file(char* filename)
         video_buffer.back_buffer = NULL;
     }
     if (video_buffer.audio_buff) {
-        // shutdown_audio_alsa();
+        shutdown_audio();
     }
 
     video_buffer.fileptr = open_file(filename);
