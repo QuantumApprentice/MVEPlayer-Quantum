@@ -1,5 +1,5 @@
 #include "parse_audio_alsa.h"
-#include "parse_audio.h"
+#include "parse_video.h"
 
 #include <memory.h>
 #include <math.h>
@@ -20,20 +20,20 @@ struct alsa_handle {
     _snd_pcm_access intrLeav = SND_PCM_ACCESS_RW_NONINTERLEAVED;
 } alsa;
 
-void init_audio_alsa()
+void init_audio_alsa(audio_handle* audio)
 {
 
-    if (video_buffer.audio_channels == 2) {   //0=mono, 1=stereo
+    if (audio->audio_channels == 2) {
         alsa.intrLeav = SND_PCM_ACCESS_RW_INTERLEAVED;
     }
-    if (video_buffer.audio_bits == 16) {   //0=8-bit, 1=16-bit
+    if (audio->audio_bits == 16) {
         alsa.bitsWide = SND_PCM_FORMAT_S16_LE;
     }
 
 
 
 
-    int      err;
+    int err;
     err = snd_pcm_open(&alsa.pcm_handle, "default", SND_PCM_STREAM_PLAYBACK, 0);
     if (err < 0) {
         printf("ALSA Audio ERROR: Can't open '%s' PCM devicel. %s\n", "default", snd_strerror(err));
@@ -72,14 +72,14 @@ void init_audio_alsa()
         // exit (1);
     }
 
-    err = snd_pcm_hw_params_set_rate_near(alsa.pcm_handle, alsa.audio_params, &video_buffer.audio_rate, 0);
+    err = snd_pcm_hw_params_set_rate_near(alsa.pcm_handle, alsa.audio_params, &audio->audio_rate, 0);
     if (err < 0) {
         printf("ALSA Audio ERROR: Can't set rate. %s\n", snd_strerror(err));
         return;
         // exit (1);
     }
 
-    err = snd_pcm_hw_params_set_channels(alsa.pcm_handle, alsa.audio_params, video_buffer.audio_channels);
+    err = snd_pcm_hw_params_set_channels(alsa.pcm_handle, alsa.audio_params, audio->audio_channels);
     if (err < 0) {
         printf("ALSA Audio ERROR: Can't set channels count. %s\n", snd_strerror(err));
         return;
@@ -122,28 +122,31 @@ void init_audio_alsa()
     }
 
     snd_pcm_hw_params_get_rate(alsa.audio_params, &tmp, 0);
-    printf("init audio : rate: %d bps file-rate: %d\n", tmp, video_buffer.audio_rate);
-    // printf("seconds: %d (although really what use is this?)\n", video_buffer.seconds);
+    printf("init audio : rate: %d bps file-rate: %d\n", tmp, audio->audio_rate);
+    // printf("seconds: %d (although really what use is this?)\n", audio->seconds);
 
     // allocate? buffer to hold single period?
     //wait, does this assign something to frames?
-    snd_pcm_hw_params_get_period_size(alsa.audio_params, &video_buffer.frames, 0);
+    snd_pcm_hw_params_get_period_size(alsa.audio_params, &alsa.frames, 0);
 
-    // fill_audio_alsa(video_buffer.audio_freq);
+    // fill_audio_alsa(audio->audio_freq);
 
     return;
 }
 
-void fill_audio_alsa(int frequency)
+//TODO: do I want an arbitrary fill for testing?
+//      might want to move this to parse_audio.cpp
+// Eskemina's example
+void fill_audio_alsa(audio_handle* audio)
 {
-    if (video_buffer.audio_buff == NULL) {
+    if (audio->audio_buff == NULL) {
         return;
     }
-    // Eskemina's example
-    int buff_size = video_buffer.audio_buff_size;
-    int volume    = video_buffer.audio_volume;
-    int channels  = video_buffer.audio_channels;
-    int rate      = video_buffer.audio_rate;
+    int buff_size = audio->audio_buff_size;
+    int volume    = audio->audio_volume;
+    int channels  = audio->audio_channels;
+    int rate      = audio->audio_rate;
+    int frequency = audio->audio_freq;
 
     #define PI 3.141592653589793
 
@@ -152,15 +155,15 @@ void fill_audio_alsa(int frequency)
         for (int i = 0; i < buff_size; i++) {
             double t = (double)i / rate;
             int16_t sample = (int16_t)(sin(2 * PI * frequency * t) * volume);
-            video_buffer.audio_buff[i] = sample;
+            audio->audio_buff[i] = sample;
         }
         break;
     case 2:
         for (int i = 0; i < buff_size/channels; i++) {
             double t = (double)i / rate;
             int16_t sample = (int16_t)(sin(2 * PI * frequency * t) * volume);
-            video_buffer.audio_buff[i*channels +0] = sample;
-            video_buffer.audio_buff[i*channels +1] = sample;
+            audio->audio_buff[i*channels +0] = sample;
+            audio->audio_buff[i*channels +1] = sample;
         }
         break;
     default:
@@ -178,14 +181,14 @@ void fill_audio_alsa(int frequency)
 //      bakerstaunch
 //      snd_pcm_avail_delay
 //      snd_pcm_delay
-void parse_audio_frame_alsa(uint16_t buff_len)
+void parse_audio_frame_alsa(audio_handle* audio, uint16_t buff_len)
 {
     int len = buff_len / 4;  //total number of samples in this chunk
-    int16_t* audio_buff = (int16_t*)video_buffer.audio_buff;
+    int16_t* audio_buff = (int16_t*)audio->audio_buff;
 
     uint32_t tmp;
     snd_pcm_hw_params_get_rate(alsa.audio_params, &tmp, 0);
-    printf("parsing audio : rate: %d bps file-rate: %d\n", tmp, video_buffer.audio_rate);
+    printf("parsing audio : rate: %d bps file-rate: %d\n", tmp, audio->audio_rate);
 
     while (len > 0) {
 
@@ -212,12 +215,12 @@ void parse_audio_frame_alsa(uint16_t buff_len)
         // }
 
         int32_t offset = 0;
-        if (video_buffer.audio_bits == 8) {
-            int8_t* buff_8 = (int8_t*)video_buffer.audio_buff;
+        if (audio->audio_bits == 8) {
+            int8_t* buff_8 = (int8_t*)audio->audio_buff;
             offset = snd_pcm_writei(alsa.pcm_handle, buff_8, len);
         }
-        if (video_buffer.audio_bits == 16) {
-            // if (video_buffer.audio_channels == 1) {
+        if (audio->audio_bits == 16) {
+            // if (audio->audio_channels == 1) {
             //     offset = snd_pcm_writen(alsa.pcm_handle, (void**)&audio_buff, len);
             // } else {
                 offset = snd_pcm_writei(alsa.pcm_handle, audio_buff, len);

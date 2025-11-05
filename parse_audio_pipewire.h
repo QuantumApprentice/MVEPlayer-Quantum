@@ -3,6 +3,6 @@
 #include <spa/utils/ringbuffer.h>
 
 
-void init_audio_pipewire();
+void init_audio_pipewire(audio_handle* audio);
 void parse_audio_frame_pipewire();
 void shutdown_audio_pipewire();

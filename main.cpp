@@ -347,7 +347,7 @@ bool load_file(char* filename)
         video_buffer.frnt_buffer = NULL;
         video_buffer.back_buffer = NULL;
     }
-    if (video_buffer.audio_buff) {
+    if (video_buffer.audio->audio_buff) {
         //TODO: what should I do with this?
         //      -I like alsa's behavior with this
         //      but pipewire just seems like ass
@@ -481,21 +481,22 @@ void plot_chunk_usage(ImVec2 pos)
 void plot_audio_waveform(ImVec2 pos)
 {
     ImGui::SetCursorPosX(pos.x+400);
-    int buff_size = video_buffer.frames * video_buffer.audio_channels * 2; //2 is the sample size?
     static float left[4096] = {};
     static float rght[4096] = {};
-    int16_t* audio_buff = (int16_t*)video_buffer.audio_buff;
+    int spf = 0;
 
-
-    if (audio_buff) {
-        for (int i = 0; i < video_buffer.audio_samples_per_frame; i++)
-        {
-            left[i] = audio_buff[i*2 +0];
-            rght[i] = audio_buff[i*2 +1];
+    if (video_buffer.audio) {
+        int16_t* audio_buff = (int16_t*)video_buffer.audio->audio_buff;
+        if (audio_buff) {
+            for (int i = 0; i < video_buffer.audio->audio_samples_per_frame; i++)
+            {
+                left[i] = audio_buff[i*2 +0];
+                rght[i] = audio_buff[i*2 +1];
+            }
         }
+        spf = video_buffer.audio->audio_samples_per_frame;
     }
 
-    int spf = video_buffer.audio_samples_per_frame;
 
     ImVec2 size = ImGui::GetItemRectSize();
     size.x /= 2;
@@ -547,16 +548,25 @@ void show_audio_info(ImVec2 pos)
     float x = pos.x + 260;
     float y = pos.y;
     ImGui::SetCursorPos({x,y});
-    ImGui::Text(
-        "Audio Rate: %dHz\n"
-        "Channels: %d %s\n"
-        "Bits per Channel:%d\n"
-        "Compression %s\n"
-        , video_buffer.audio_rate
-        , video_buffer.audio_channels, video_buffer.audio_channels == 1 ? "(Mono)" : "(Stereo)"
-        , video_buffer.audio_bits
-        , video_buffer.audio_compress ? "On" : "Off"
-    );
+    if (video_buffer.audio) {
+        ImGui::Text(
+            "Audio Rate: %dHz\n"
+            "Channels: %d %s\n"
+            "Bits per Channel:%d\n"
+            "Compression %s\n"
+            , video_buffer.audio->audio_rate
+            , video_buffer.audio->audio_channels, video_buffer.audio->audio_channels == 1 ? "(Mono)" : "(Stereo)"
+            , video_buffer.audio->audio_bits
+            , video_buffer.audio->audio_compress ? "On" : "Off"
+        );
+    } else {
+        ImGui::Text(
+            "Audio Rate:       ---\n"
+            "Channels: --      ---\n"
+            "Bits per Channel: ---\n"
+            "Compression       ---\n"
+        );
+    }
 }
 
 void plot_fps(ImVec2 pos, float time)

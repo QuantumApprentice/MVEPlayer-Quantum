@@ -38,6 +38,8 @@ struct pw_data {
     struct spa_ringbuffer ring;
     // float buff[BUFFER_SIZE * DEFAULT_CHANNELS];
     int16_t buff[BUFFER_SIZE * DEFAULT_CHANNELS];
+
+    audio_handle* audio;
 } pipewire_data = {0};
 
 //fills local buffer with tone generator
@@ -67,8 +69,8 @@ void fill_int16(struct pw_data* d, uint32_t offset, int n_frames)
 {
     for (int i = 0; i < n_frames; i++)
     {
-        d->buff[((offset+i)% BUFFER_SIZE) * 2 + 0] = video_buffer.audio_buff[i*2+0];
-        d->buff[((offset+i)% BUFFER_SIZE) * 2 + 1] = video_buffer.audio_buff[i*2+1];
+        d->buff[((offset+i)% BUFFER_SIZE) * 2 + 0] = video_buffer.audio->audio_buff[i*2+0];
+        d->buff[((offset+i)% BUFFER_SIZE) * 2 + 1] = video_buffer.audio->audio_buff[i*2+1];
     }
 }
 
@@ -173,7 +175,7 @@ void do_quit(void* userdata, int sig_num)
 }
 
 //equivalent to main() in pipewire examples
-void init_audio_pipewire()
+void init_audio_pipewire(audio_handle* audio)
 {
     pw_init(0, NULL);
 
@@ -214,8 +216,8 @@ void init_audio_pipewire()
     struct spa_audio_info_raw audio_info = {
         .format   = SPA_AUDIO_FORMAT_S16,
         .flags    = 0,
-        .rate     = video_buffer.audio_rate,
-        .channels = video_buffer.audio_channels,
+        .rate     = audio->audio_rate,
+        .channels = audio->audio_channels,
         .position = {0}
     };
     params[0] = spa_format_audio_raw_build(

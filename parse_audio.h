@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include "parse_video.h"
 
 struct audio_handle {
     int16_t* audio_buff    = NULL;

@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <memory.h>
 #include "parse_opcodes.h"
 #include "parse_video.h"
 #include "parse_audio.h"
