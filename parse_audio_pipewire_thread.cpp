@@ -31,7 +31,7 @@ struct pw_data {
 
 
     struct spa_ringbuffer ring;
-    uint8_t buff[BUFFER_SIZE * DEFAULT_CHANNELS];
+    uint16_t buff[BUFFER_SIZE * DEFAULT_CHANNELS];
 
     audio_handle* audio;
 } pipewire_data = {0};
@@ -86,10 +86,10 @@ void push_samples(uint8_t* samples, uint32_t n_samples)
         spa_ringbuffer_write_data(
             &d->ring,
             d->buff,
-            BUFFER_SIZE,
-            (index % BUFFER_SIZE),
+            BUFFER_SIZE * stride,
+            (index % BUFFER_SIZE) * stride,
             ptr,
-            avail
+            avail * stride
         );
 
         ptr += avail * DEFAULT_CHANNELS;
