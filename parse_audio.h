@@ -3,9 +3,11 @@
 #include "parse_video.h"
 
 struct audio_handle {
-    int16_t* audio_buff    = NULL;
-    int audio_buff_size    = 0;
-    int audio_min_buff_len = 0;
+    int16_t* decode_buff   = NULL;
+    int decode_buff_size   = 0;
+
+    int decode_min_buff_len = 0;
+
     float audio_volume     = 0.5f;
     int audio_freq         = 210;
     uint32_t audio_rate    = 48000;

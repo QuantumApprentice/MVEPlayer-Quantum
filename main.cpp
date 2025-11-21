@@ -347,7 +347,7 @@ bool load_file(char* filename)
         video_buffer.frnt_buffer = NULL;
         video_buffer.back_buffer = NULL;
     }
-    if (video_buffer.audio->audio_buff) {
+    if (video_buffer.audio->decode_buff) {
         //TODO: what should I do with this?
         //      -I like alsa's behavior with this
         //      but pipewire just seems like ass
@@ -486,7 +486,7 @@ void plot_audio_waveform(ImVec2 pos)
     int spf = 0;
 
     if (video_buffer.audio) {
-        int16_t* audio_buff = (int16_t*)video_buffer.audio->audio_buff;
+        int16_t* audio_buff = (int16_t*)video_buffer.audio->decode_buff;
         if (audio_buff) {
             for (int i = 0; i < video_buffer.audio->audio_samples_per_frame; i++)
             {
@@ -561,10 +561,10 @@ void show_audio_info(ImVec2 pos)
         );
     } else {
         ImGui::Text(
-            "Audio Rate:       ---\n"
-            "Channels: --      ---\n"
-            "Bits per Channel: ---\n"
-            "Compression       ---\n"
+            "Audio Rate:      ---\n"
+            "Channels:        ---\n"
+            "Bits per Channel: --\n"
+            "Compression      ---\n"
         );
     }
 }
@@ -879,6 +879,6 @@ bool parse_chunk(Chunk chunk)
         break;
     }
 
-    printf("%d frames processed\n", video_buffer.frame_count);
+    printf("video frame %d processed\n", video_buffer.frame_count);
     return render_frame;
 }

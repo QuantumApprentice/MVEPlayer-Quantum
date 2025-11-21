@@ -1,7 +1,9 @@
 #include "parse_audio.h"
 
 #include "parse_audio_alsa.h"
-#include "parse_audio_pipewire.h"
+// #include "parse_audio_pipewire.h"
+#include "parse_audio_pipewire_thread.h"
+#include "ring_buffer.h"
 
 extern video video_buffer;
 struct audio_handle audio;
@@ -89,17 +91,11 @@ void init_audio(uint8_t* buff, uint8_t version)
         compress = true;
     }
 
-    // video_buffer.audio_channels     = channels;
-    // video_buffer.audio_rate         = sample_rate;
-    // video_buffer.audio_bits         = bits;
-    // video_buffer.audio_compress     = compress;
-    // video_buffer.audio_min_buff_len = min_buff_len;
-
     audio.audio_channels            = channels;
     audio.audio_rate                = sample_rate;
     audio.audio_bits                = bits;
     audio.audio_compress            = compress;
-    audio.audio_min_buff_len        = min_buff_len;
+    audio.decode_min_buff_len       = min_buff_len;
 
 
     //get size to allocate
@@ -113,18 +109,23 @@ void init_audio(uint8_t* buff, uint8_t version)
 
 
     int buff_size;
-    if (audio.audio_min_buff_len > 0) {
-        buff_size = audio.audio_min_buff_len;
+    if (audio.decode_min_buff_len > 0) {
+        buff_size = audio.decode_min_buff_len;
     } else {
         buff_size = samples_per_frame;
     }
     //allocate buffer
-    if (!audio.audio_buff) {
-        audio.audio_buff = (int16_t*)calloc(buff_size*sizeof(int16_t), 1);
+    if (!audio.decode_buff) {
+        audio.decode_buff = (int16_t*)calloc(buff_size*sizeof(int16_t), 1);
+        audio.decode_buff_size = buff_size;
     }
+    // if (!audio.circle_buff) {
+    //     audio.circle_buff = (int16_t*)calloc(1000,64*sizeof(int16_t));   //128k buffer
+    //     audio.circle_buff_size = 1000*64*2;
+    // }
 
+    // init_ring(buff_size);
 
-    audio.audio_buff_size = buff_size;
 
 
     video_buffer.audio = &audio;
@@ -141,7 +142,7 @@ void init_audio(uint8_t* buff, uint8_t version)
 //stereo
 void decompress_8(uint8_t* buff, int len)
 {
-    int8_t* audio_buff = (int8_t*)audio.audio_buff;
+    int8_t* audio_buff = (int8_t*)audio.decode_buff;
     if (audio.audio_channels == 1) {     //mono
         static int8_t last = buff[0];
         for (int i = 0; i < len; i++)
@@ -175,7 +176,7 @@ void decompress_8(uint8_t* buff, int len)
 void decompress_16(uint8_t* buff, int len)
 {
     int16_t* buff_16 = (int16_t*)buff;
-    int16_t* audio_buff = audio.audio_buff;
+    int16_t* audio_buff = audio.decode_buff;
     if (audio.audio_channels == 1) {     //mono
         // int16_t last = buff_16[0];
         // for (int i = 0; i < len; i++)
@@ -201,7 +202,6 @@ void decompress_16(uint8_t* buff, int len)
             l_last = l_curr;
             r_last = r_curr;
         }
-        
     }
     if (audio.audio_channels == 2) {     //stereo
         int16_t l_last = buff_16[0];
@@ -242,10 +242,14 @@ void parse_audio_frame(uint8_t* buff, opcodeinfo op)
     //      actual input length is frame.length/(bytes per channel)
     //      actual output length is frame.length
 
+    static int frame_count = 0;
+    frame_count++;
+    printf("audio frame count: %d length: %d\n",frame_count, frame->length);
+
     // audio.audio_calc_rate += frame->length;
     if (audio.audio_compress == 0) {
         // memcpy(audio.audio_buff, frame->data, op.size-8);
-        int8_t* audio_buff_8 = (int8_t*)audio.audio_buff;
+        int8_t* audio_buff_8 = (int8_t*)audio.decode_buff;
         if (audio.audio_bits == 8) {
             if (audio.audio_channels == 1) {
                 for (int i = 0; i < op.size-8; i++)
@@ -271,7 +275,7 @@ void parse_audio_frame(uint8_t* buff, opcodeinfo op)
         // }
     }
 
-    // if (audio.audio_compress == 1) {
+    if (audio.audio_compress == 1) {
         uint8_t decompress_buff[65536] = {0};
         memcpy(decompress_buff, frame->data, op.size-8);
         if (audio.audio_bits == 8 ) {
@@ -280,8 +284,10 @@ void parse_audio_frame(uint8_t* buff, opcodeinfo op)
         if (audio.audio_bits == 16) {
             decompress_16(decompress_buff, op.size-8);
         }
-    // }
 
+    }
+
+    // copy_to_ring((uint8_t*)audio.decode_buff, op.size-8);
 
 
 
@@ -289,7 +295,13 @@ void parse_audio_frame(uint8_t* buff, opcodeinfo op)
     if (video_buffer.audio_pipe == ALSA) {
         parse_audio_frame_alsa(&audio, frame->length);
     } else {
-        parse_audio_frame_pipewire();
+        //multi thread pipewire doesn't need
+        //to call this, it's constantly running
+        //in a separate thread
+        // parse_audio_frame_pipewire();
+
+        printf("pushing samples: size %d\n", op.size - 8);
+        push_samples((uint8_t*)audio.decode_buff, op.size-8);
     }
 }
 
@@ -301,6 +313,7 @@ void shutdown_audio()
         shutdown_audio_pipewire();
     }
 
-    free(audio.audio_buff);
-    audio.audio_buff = NULL;
+    free_ring();
+    free(audio.decode_buff);
+    audio.decode_buff = NULL;
 }

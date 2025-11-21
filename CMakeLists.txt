@@ -10,13 +10,15 @@ target_sources(
     parse_video.cpp
     parse_audio.cpp
     parse_audio_alsa.cpp
-    parse_audio_pipewire.cpp
+    # parse_audio_pipewire.cpp
+    parse_audio_pipewire_thread.cpp
     parse_opcodes.cpp
     MiniSDL.cpp
     shader_class.cpp
     io_OpenGL.cpp
     io_Platform.cpp
     io_Timer.cpp
+    ring_buffer.cpp
 )
 
 # Windows compile stuff

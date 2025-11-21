@@ -139,10 +139,10 @@ void init_audio_alsa(audio_handle* audio)
 // Eskemina's example
 void fill_audio_alsa(audio_handle* audio)
 {
-    if (audio->audio_buff == NULL) {
+    if (audio->decode_buff == NULL) {
         return;
     }
-    int buff_size = audio->audio_buff_size;
+    int buff_size = audio->decode_buff_size;
     int volume    = audio->audio_volume;
     int channels  = audio->audio_channels;
     int rate      = audio->audio_rate;
@@ -155,15 +155,15 @@ void fill_audio_alsa(audio_handle* audio)
         for (int i = 0; i < buff_size; i++) {
             double t = (double)i / rate;
             int16_t sample = (int16_t)(sin(2 * PI * frequency * t) * volume);
-            audio->audio_buff[i] = sample;
+            audio->decode_buff[i] = sample;
         }
         break;
     case 2:
         for (int i = 0; i < buff_size/channels; i++) {
             double t = (double)i / rate;
             int16_t sample = (int16_t)(sin(2 * PI * frequency * t) * volume);
-            audio->audio_buff[i*channels +0] = sample;
-            audio->audio_buff[i*channels +1] = sample;
+            audio->decode_buff[i*channels +0] = sample;
+            audio->decode_buff[i*channels +1] = sample;
         }
         break;
     default:
@@ -184,7 +184,7 @@ void fill_audio_alsa(audio_handle* audio)
 void parse_audio_frame_alsa(audio_handle* audio, uint16_t buff_len)
 {
     int len = buff_len / 4;  //total number of samples in this chunk
-    int16_t* audio_buff = (int16_t*)audio->audio_buff;
+    int16_t* audio_buff = (int16_t*)audio->decode_buff;
 
     uint32_t tmp;
     snd_pcm_hw_params_get_rate(alsa.audio_params, &tmp, 0);
@@ -216,7 +216,7 @@ void parse_audio_frame_alsa(audio_handle* audio, uint16_t buff_len)
 
         int32_t offset = 0;
         if (audio->audio_bits == 8) {
-            int8_t* buff_8 = (int8_t*)audio->audio_buff;
+            int8_t* buff_8 = (int8_t*)audio->decode_buff;
             offset = snd_pcm_writei(alsa.pcm_handle, buff_8, len);
         }
         if (audio->audio_bits == 16) {

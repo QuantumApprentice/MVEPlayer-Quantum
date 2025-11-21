@@ -2,7 +2,7 @@
 #include "parse_opcodes.h"
 
 #include "parse_audio.h"
-#include "parse_audio_pipewire.h"
+#include "parse_audio_pipewire_thread.h"
 #include "ring_buffer.h"
 
 #include <math.h>
@@ -11,9 +11,6 @@
 #include <spa/param/audio/format-utils.h>
 
 extern video video_buffer;
-void registry_event_global(void* data, uint32_t id,
-            uint32_t permissions, const char* type,
-            uint32_t version, const struct spa_dict* props);
 
 #define DEFAULT_CHANNELS    (2)
 #define BUFFER_SIZE         (128*1024)
@@ -23,23 +20,24 @@ void registry_event_global(void* data, uint32_t id,
 #define DEFAULT_BITS        int16_t
 
 struct pw_data {
-    struct pw_main_loop* main_loop;
+    // struct pw_main_loop* main_loop;
+    struct pw_thread_loop* thread_loop;
     struct pw_loop*      loop;
     struct pw_stream*    stream;
+    int eventfd;
+    bool running;
 
     float accumulator;
 
-    struct spa_source* refill_event;
 
     struct spa_ringbuffer ring;
-    // float buff[BUFFER_SIZE * DEFAULT_CHANNELS];
-    int16_t buff[BUFFER_SIZE * DEFAULT_CHANNELS];
+    uint8_t buff[BUFFER_SIZE * DEFAULT_CHANNELS];
 
     audio_handle* audio;
 } pipewire_data = {0};
 
 //fills local buffer with tone generator
-void fill_f32(struct pw_data* d, uint32_t offset, int n_frames)
+void fill_f32(struct pw_data* d, float* samples, int n_frames)
 {
     float val;
 
@@ -54,46 +52,54 @@ void fill_f32(struct pw_data* d, uint32_t offset, int n_frames)
         val = sinf(d->accumulator) * DEFAULT_VOLUME;
         for (int c = 0; c < DEFAULT_CHANNELS; c++)
         {
-            d->buff[((offset + i) % BUFFER_SIZE) * DEFAULT_CHANNELS + c] = val;
+            // samples[] is global float buffer
+            samples[i * DEFAULT_CHANNELS + c] = val;
         }
     }
 }
 
-int fill_from_ring(struct pw_data* d, uint32_t offset, int n_frames)
+void push_samples(uint8_t* samples, uint32_t n_samples)
 {
-    return copy_from_ring((uint8_t*)&d->buff[offset], n_frames);
+    struct pw_data* d = &pipewire_data;
+    int32_t filled;
+    uint32_t index, avail;
+    uint32_t stride = sizeof(int16_t) * DEFAULT_CHANNELS;
+    uint64_t count;
 
-}
+    uint8_t* ptr = samples;
 
-//fills local buffer from video_buffer.audio->audio_buffer
-//stereo only
-void fill_int16(struct pw_data* d, uint32_t offset, int n_frames)
-{
-    for (int i = 0; i < n_frames; i++)
-    {
-        d->buff[((offset+i)% BUFFER_SIZE) * 2 + 0] = video_buffer.audio->decode_buff[i*2+0];
-        d->buff[((offset+i)% BUFFER_SIZE) * 2 + 1] = video_buffer.audio->decode_buff[i*2+1];
+    while (n_samples > 0) {
+        while (true)
+        {
+            filled = spa_ringbuffer_get_write_index(&d->ring, &index);
+            spa_assert(filled >= 0);
+            spa_assert(filled <= BUFFER_SIZE);
+
+            avail = BUFFER_SIZE - filled;
+            if (avail > 0) {break;}
+
+            // if no space then block and wait
+            spa_system_eventfd_read(d->loop->system, d->eventfd, &count);
+        }
+        if (avail > n_samples) {avail = n_samples;}
+
+        spa_ringbuffer_write_data(
+            &d->ring,
+            d->buff,
+            BUFFER_SIZE,
+            (index % BUFFER_SIZE),
+            ptr,
+            avail
+        );
+
+        ptr += avail * DEFAULT_CHANNELS;
+        n_samples -= avail;
+
+        // advance ringbuffer
+        spa_ringbuffer_write_update(&d->ring, index + avail);
     }
 }
 
-void do_refill(void* usr_data, uint64_t count)
-{
-    struct pw_data* data = (struct pw_data*)usr_data;
-    int32_t filled;
-    uint32_t idx, avail;
-
-    filled = spa_ringbuffer_get_write_index(&data->ring, &idx);
-    spa_assert(filled >= 0);
-    spa_assert(filled <= BUFFER_SIZE);
-
-    avail = BUFFER_SIZE - filled;
-
-    int actual_read = fill_from_ring(data, idx % BUFFER_SIZE, avail);
-
-    //ringbuffer advance?
-    spa_ringbuffer_write_update(&data->ring, idx + actual_read);
-    // pw_main_loop_quit(data->main_loop);
-}
 
 void on_process(void* userdata)
 {
@@ -120,9 +126,9 @@ void on_process(void* userdata)
     //TODO: this needs to be able to switch between 8 and 16
     // stride = sizeof(DEFAULT_BITS) * DEFAULT_CHANNELS;
     stride = sizeof(int16_t) * DEFAULT_CHANNELS;
-    frames = sp_b->datas[0].maxsize/stride;
+    frames = sp_b->datas[0].maxsize / stride;
 
-    printf("datas[0].maxsize: %d\n", sp_b->datas[0].maxsize);
+    // printf("datas[0].maxsize: %d\n", sp_b->datas[0].maxsize);
     printf("frames before requested: %d\n", frames);
     if (pw_b->requested) {
         frames = SPA_MIN(pw_b->requested, frames);
@@ -142,10 +148,10 @@ void on_process(void* userdata)
         spa_ringbuffer_read_data(
             &d->ring,   //apparently this isn't used in this version anyway
             d->buff,
-            BUFFER_SIZE*stride,
+            BUFFER_SIZE * stride,
             (idx % BUFFER_SIZE) * stride,
             sp_b->datas[0].data,
-            to_read*stride
+            to_read * stride
         );
         //update read pointer
         spa_ringbuffer_read_update(&d->ring, idx+to_read);
@@ -165,7 +171,8 @@ void on_process(void* userdata)
     * we can only do this, for example
     * when the available ringbuffer space falls
     * below a certain level. */
-    pw_loop_signal_event(d->loop, d->refill_event);
+    // pw_loop_signal_event(d->loop, d->refill_event);
+    spa_system_eventfd_write(d->loop->system, d->eventfd, 1);
 }
 
 struct pw_stream_events stream_events = {
@@ -175,7 +182,8 @@ struct pw_stream_events stream_events = {
 void do_quit(void* userdata, int sig_num)
 {
     struct pw_data* d = (pw_data*)userdata;
-    pw_main_loop_quit(d->main_loop);
+    // pw_main_loop_quit(d->main_loop);
+    d->running = false;
 }
 
 //equivalent to main() in pipewire examples
@@ -194,14 +202,19 @@ void init_audio_pipewire(audio_handle* audio)
     uint8_t pw_audio_buff[BUFFER_SIZE];
     struct spa_pod_builder pod_b = SPA_POD_BUILDER_INIT(pw_audio_buff,sizeof(pw_audio_buff));
 
-    d->main_loop = pw_main_loop_new(NULL);
-    d->loop      = pw_main_loop_get_loop(d->main_loop);
+    d->thread_loop = pw_thread_loop_new("q_pipewire", NULL);
+    d->loop = pw_thread_loop_get_loop(d->thread_loop);
+    d->running = true;
+    pw_thread_loop_lock(d->thread_loop);
 
     pw_loop_add_signal(d->loop, SIGINT,  do_quit, d);
     pw_loop_add_signal(d->loop, SIGTERM, do_quit, d);
 
     spa_ringbuffer_init(&d->ring);
-    d->refill_event = pw_loop_add_event(d->loop, do_refill, d);
+    if ((d->eventfd = spa_system_eventfd_create(d->loop->system, SPA_FD_CLOEXEC)) < 0) {
+        // return d->eventfd;   //???????
+    }
+    pw_thread_loop_start(d->thread_loop);
 
     struct pw_properties* props = pw_properties_new(
         PW_KEY_MEDIA_TYPE,     "Audio",
@@ -243,9 +256,12 @@ void init_audio_pipewire(audio_handle* audio)
         params, 1
     );
 
-    while (pw_stream_get_state(d->stream, NULL) != PW_STREAM_STATE_STREAMING) {
-        pw_loop_iterate(d->loop, 0);
-    }
+
+
+
+    pw_thread_loop_start(d->thread_loop);
+    pw_thread_loop_unlock(d->thread_loop);
+
 
 }
 
@@ -253,24 +269,10 @@ void shutdown_audio_pipewire()
 {
     struct pw_data* d = &pipewire_data;
 
+    pw_thread_loop_lock(d->thread_loop);
     pw_stream_destroy(d->stream);
-    pw_loop_destroy_source(d->loop, d->refill_event);
-    pw_main_loop_destroy(d->main_loop);
+    pw_thread_loop_unlock(d->thread_loop);
+    pw_thread_loop_destroy(d->thread_loop);
+    close(d->eventfd);
     pw_deinit();
-}
-
-void parse_audio_frame_pipewire()
-{
-    struct pw_data* d = &pipewire_data;
-
-    // pw_main_loop_run(pipewire_data.main_loop);
-    pw_loop_iterate(d->loop, -1);
-}
-
-
-void registry_event_global(void* data, uint32_t id,
-            uint32_t permissions, const char* type,
-            uint32_t version, const struct spa_dict* props)
-{
-    printf("object: id:%u type:%s/%d\n", id, type, version);
 }
