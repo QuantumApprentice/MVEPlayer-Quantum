@@ -62,9 +62,7 @@ int rb_write(Ring_Buffer* rb, uint8_t* src_buff, int src_size)
     int write_idx  = rb->write_idx;
     int to_end_size = min(src_size, rb->size - write_idx);
 
-    printf("rb audio write index: %d\n", write_idx);
-    printf("rb write size %d, src size %d\n", write_size, src_size);
-    printf("rb write to_end size %d\n", to_end_size);
+    printf("rb audio write index: %d size: %d src size: %d to_end size: %d\n", write_idx, write_size, src_size, to_end_size);
 
     memcpy(&rb->buff[write_idx], src_buff, to_end_size);
     if (to_end_size != write_size) {
@@ -96,9 +94,7 @@ int rb_read(Ring_Buffer* rb, uint8_t* dst_buff, int dst_size)
     int read_idx  = rb->read_idx;
     int to_end_size = min(read_size, rb->size - rb->read_idx);
 
-    printf("rb audio read index: %d\n", read_idx);
-    printf("rb read size %d, src size %d\n", read_size, dst_size);
-    printf("rb read to_end size %d\n", to_end_size);
+    printf("rb audio read index: %d size: %d src size: %d to_end size: %d\n", read_idx, read_size, dst_size, to_end_size);
 
     memcpy(dst_buff, &rb->buff[read_idx], to_end_size);
     if (to_end_size != read_size) {
@@ -142,6 +138,11 @@ int copy_from_ring(uint8_t* dst_buff, int dst_len)
     }
 
     return read;
+}
+
+int available_ring()
+{
+    return rb_avail(&rb);
 }
 
 void init_ring(int size)

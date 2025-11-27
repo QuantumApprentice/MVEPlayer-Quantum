@@ -639,6 +639,8 @@ void video_player()
     ImGui::Combo("audio", &video_buffer.audio_pipe,
         "alsa\0"
         "pipewire\0"
+        "pipewire threaded\0"
+        "ringbuffer\0"
     );
     ImGui::PopItemWidth();
 
@@ -879,6 +881,6 @@ bool parse_chunk(Chunk chunk)
         break;
     }
 
-    printf("video frame %d processed\n", video_buffer.frame_count);
+    // printf("video frame %d processed\n", video_buffer.frame_count);
     return render_frame;
 }

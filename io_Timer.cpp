@@ -19,7 +19,9 @@ uint64_t io_nano_time()
     //return (clock() / CLOCKS_PER_SEC);
 }
 
-void io_print_timer(uint64_t StartingTime)
+// prints a user input string with the time in micro-seconds appended
+// passing NULL for the string uses a default "Total time elapsed: " instead
+void io_print_timer(const char* str, uint64_t StartingTime)
 {
     ////timing code WINDOWS ONLY
     // QueryPerformanceCounter(&EndingTime);
@@ -30,7 +32,10 @@ void io_print_timer(uint64_t StartingTime)
     uint64_t EndingTime = nano_time();
     uint64_t nanoseconds_total = EndingTime - StartingTime; // = NANOSECONDS_IN_SECOND * (end.tv_sec - start.tv_sec);
     uint64_t microseconds_total = nanoseconds_total / 1000;
-    printf("Total time elapsed: %ldus\n", microseconds_total);
+    if (str == NULL) {
+        str = "Total time elapsed";
+    }
+    printf("%s: %ldμs\n", str, microseconds_total);
 }
 
 #elif defined(LINUX)
@@ -48,13 +53,18 @@ uint64_t io_nano_time()
     // return (start.tv_sec * 1000 + (start.tv_nsec)/(long)1000000);
 }
 
-void io_print_timer(uint64_t StartingTime)
+// prints a user input string with the time in micro-seconds appended
+// passing NULL for the string uses a default "Total time elapsed: " instead
+void io_print_timer(const char* str, uint64_t StartingTime)
 {
         // timing code LINUX
         uint64_t EndingTime = io_nano_time();
         uint64_t nanoseconds_total = EndingTime - StartingTime; // = NANOSECONDS_IN_SECOND * (end.tv_sec - start.tv_sec);
         uint64_t microseconds_total = nanoseconds_total / 1000;
-        printf("Total time elapsed: %ldμs\n", microseconds_total);
+        if (str == NULL) {
+            str = "Total time elapsed";
+        }
+        printf("%s: %ldμs\n", str, microseconds_total);
 }
 #endif
 

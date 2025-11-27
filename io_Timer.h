@@ -2,4 +2,4 @@
 #include <cstdint>
 
 uint64_t io_nano_time();
-void io_print_timer(uint64_t StartingTime);
+void io_print_timer(const char* str, uint64_t StartingTime);
