@@ -38,65 +38,6 @@ struct pw_data {
     audio_handle* audio;
 } pipewire_data = {0};
 
-void signal_pipewire(uint32_t n_samples)
-{
-    // struct pw_data* d = &pipewire_data;
-    // uint32_t index;
-    // // uint32_t filled = spa_ringbuffer_get_write_index(&d->ring, &index);
-    // uint32_t avail = BUFFER_SIZE;// - filled;
-    // if (avail > n_samples) {avail = n_samples;}
-    // spa_ringbuffer_write_update(&d->ring, index + avail);
-    // d->buff_used = n_samples;
-
-
-
-
-
-
-    struct pw_data* d = &pipewire_data;
-    int32_t filled;
-    uint32_t index, avail;
-    uint32_t stride = sizeof(int16_t) * DEFAULT_CHANNELS;
-    uint64_t count;
-
-    // uint8_t* ptr = samples;
-
-    while (n_samples > 0) {
-        // while (true) {
-        //     // appears to return amount in samples
-        //     // the size of which depends on the stride
-        //     filled = spa_ringbuffer_get_write_index(&d->ring, &index);
-        //     spa_assert(filled >= 0);
-        //     spa_assert(filled <= BUFFER_SIZE);
-
-        //     avail = BUFFER_SIZE - filled;
-        //     if (avail > 0) {break;}
-
-        //     // if no space then block and wait
-        //     spa_system_eventfd_read(d->loop->system, d->eventfd, &count);
-        // }
-        avail = BUFFER_SIZE - filled;
-        if (avail > n_samples) {avail = n_samples;}
-
-        // spa_ringbuffer_write_data(
-        //     &d->ring,
-        //     d->buff,
-        //     BUFFER_SIZE * stride,
-        //     (index % BUFFER_SIZE) * stride,
-        //     ptr,
-        //     avail * stride
-        // );
-
-        // ptr += avail * DEFAULT_CHANNELS;
-        n_samples -= avail;
-
-        // advance ringbuffer
-        spa_ringbuffer_write_update(&d->ring, index + avail);
-    }
-
-    // d->buff_used = n_samples;
-}
-
 void push_samples(uint8_t* samples, uint32_t n_samples)
 {
     struct pw_data* d = &pipewire_data;
@@ -143,7 +84,7 @@ void push_samples(uint8_t* samples, uint32_t n_samples)
 }
 
 
-void on_process(void* userdata)
+void process_pipewire(void* userdata)
 {
     struct pw_data* d = &pipewire_data;
     struct pw_buffer*  pw_b;
@@ -165,10 +106,6 @@ void on_process(void* userdata)
     //returns amount of space in ringbuffer, stores ringbuffer index in idx
     avail = spa_ringbuffer_get_read_index(&d->ring, &idx);
 
-    // if (video_buffer.audio_pipe == RINGBUFFER) {
-    //     avail = available_ring();
-    // }
-
     //TODO: this needs to be able to switch between 8 and 16
     stride = sizeof(int16_t) * DEFAULT_CHANNELS;
     frames = sp_b->datas[0].maxsize / stride;
@@ -185,6 +122,8 @@ void on_process(void* userdata)
     //otherwise silence?
     to_silence = frames - to_read;
 
+    // int buff_size = d->audio->decode_min_buff_len*d->audio->audio_channels
+
     if (to_read > 0) {
         // printf("pipewire read %d\n", to_read);
         // printf("stride %d, avail %d\n", stride, frames, avail);
@@ -193,13 +132,13 @@ void on_process(void* userdata)
         spa_ringbuffer_read_data(
             &d->ring,   //apparently this isn't used in this version anyway
             d->buff,
-            d->buff_used * stride,
+            BUFFER_SIZE * stride,
             (idx % BUFFER_SIZE) * stride,
             sp_b->datas[0].data,
             to_read * stride
         );
         //update read pointer
-        spa_ringbuffer_read_update(&d->ring, idx+to_read);
+        spa_ringbuffer_read_update(&d->ring, idx+to_read*stride);
 
         uint64_t time = io_nano_time();
         static uint64_t prev_time;
@@ -223,7 +162,7 @@ void on_process(void* userdata)
     * when the available ringbuffer space falls
     * below a certain level. */
     // pw_loop_signal_event(d->loop, d->refill_event);
-    spa_system_eventfd_write(d->loop->system, d->eventfd, 1);
+    // spa_system_eventfd_write(d->loop->system, d->eventfd, 1);
 }
 
 void process_ringbuffer(void* userdata)
@@ -266,25 +205,6 @@ void process_ringbuffer(void* userdata)
     to_silence = frames - to_read;
 
     if (to_read > 0) {
-        // printf("pipewire read %d\n", to_read);
-        // printf("stride %d, avail %d\n", stride, frames, avail);
-        // //read data INTO shared datas[0].data buffer from d.buff
-        // //and apparently datas[0].data is shared with the ringbuffer (or is the ringbuffer?)
-        // spa_ringbuffer_read_data(
-        //     &d->ring,   //apparently this isn't used in this version anyway
-        //     d->buff,
-        //     d->buff_used * stride,
-        //     (idx % BUFFER_SIZE) * stride,
-        //     sp_b->datas[0].data,
-        //     to_read * stride
-        // );
-        // //update read pointer
-        // spa_ringbuffer_read_update(&d->ring, idx+to_read);
-
-
-
-
-
 
         int amt_copied = copy_from_ring((uint8_t*)sp_b->datas[0].data, to_read*stride);
         // if (amt_copied != to_read) {
@@ -295,10 +215,6 @@ void process_ringbuffer(void* userdata)
         static uint64_t prev_time;
         io_print_timer("time since last ringbuffer update", prev_time);
         prev_time = time;
-
-
-
-
 
 
     }
@@ -318,7 +234,7 @@ void process_ringbuffer(void* userdata)
     * when the available ringbuffer space falls
     * below a certain level. */
     // pw_loop_signal_event(d->loop, d->refill_event);
-    spa_system_eventfd_write(d->loop->system, d->eventfd, 1);
+    // spa_system_eventfd_write(d->loop->system, d->eventfd, 1);
 }
 
 struct pw_stream_events stream_ringbuffer = {
@@ -326,9 +242,9 @@ struct pw_stream_events stream_ringbuffer = {
     .process = process_ringbuffer
 };
 
-struct pw_stream_events stream_events = {
+struct pw_stream_events stream_pipewire = {
     PW_VERSION_STREAM_EVENTS,
-    .process = on_process
+    .process = process_pipewire
 };
 void do_quit_thread(void* userdata, int sig_num)
 {
@@ -384,7 +300,7 @@ void init_audio_pipewire(audio_handle* audio)
             d->loop,
             "MVE_Audio",    //not actually displayed as name in pw-top for some reason
             props,
-            &stream_events,
+            &stream_pipewire,
             &d
         );
     }
@@ -397,6 +313,9 @@ void init_audio_pipewire(audio_handle* audio)
         .channels = audio->audio_channels,
         .position = {0}
     };
+
+
+    // int buff_size = audio->decode_min_buff_len*audio->audio_channels;
 
     const struct spa_pod* params[1];
     uint8_t pw_audio[1024];

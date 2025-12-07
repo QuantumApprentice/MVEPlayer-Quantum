@@ -17,7 +17,7 @@ static struct Ring_Buffer {
 bool rb_init(Ring_Buffer* rb, int size)
 {
     memset(rb, 0, sizeof(rb));
-    rb->buff = (uint8_t*)malloc(size+64);
+    rb->buff = (uint8_t*)malloc(size);
     rb->size = size;
 
     return (rb->buff != 0);
@@ -34,7 +34,6 @@ void rb_free(Ring_Buffer* rb)
 int rb_used(Ring_Buffer* rb)
 {
     int used = rb->write_idx - rb->read_idx;
-    printf("rb audio used before: %d\n", used);
     if (used < 0) {
         used += rb->size;
     }
@@ -58,11 +57,11 @@ int rb_write(Ring_Buffer* rb, uint8_t* src_buff, int src_size)
     int to_end = rb->size - rb->write_idx;
 
 
-    int write_size = min(src_size, rb_avail(rb));
+    int write_size = min(src_size, avail);
     int write_idx  = rb->write_idx;
     int to_end_size = min(src_size, rb->size - write_idx);
 
-    printf("rb audio write index: %d size: %d src size: %d to_end size: %d\n", write_idx, write_size, src_size, to_end_size);
+    printf("rb audio write_index: %d write_size: %d src_size: %d to_end size: %d\n", write_idx, write_size, src_size, to_end_size);
 
     memcpy(&rb->buff[write_idx], src_buff, to_end_size);
     if (to_end_size != write_size) {
@@ -90,11 +89,11 @@ int rb_read(Ring_Buffer* rb, uint8_t* dst_buff, int dst_size)
     int to_end = rb->size - rb->read_idx;
 
 
-    int read_size = min(dst_size, rb_used(rb));
+    int read_size = min(dst_size, used);
     int read_idx  = rb->read_idx;
     int to_end_size = min(read_size, rb->size - rb->read_idx);
 
-    printf("rb audio read index: %d size: %d src size: %d to_end size: %d\n", read_idx, read_size, dst_size, to_end_size);
+    printf("rb audio read_index: %d read_size: %d src_size: %d to_end size: %d\n", read_idx, read_size, dst_size, to_end_size);
 
     memcpy(dst_buff, &rb->buff[read_idx], to_end_size);
     if (to_end_size != read_size) {

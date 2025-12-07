@@ -35,7 +35,7 @@ struct pw_data {
     // float buff[BUFFER_SIZE * DEFAULT_CHANNELS];
     int16_t buff[BUFFER_SIZE * DEFAULT_CHANNELS];
 
-    audio_handle* audio;
+    // audio_handle* audio;
 } pipewire_data = {0};
 
 //fills local buffer with tone generator
@@ -182,16 +182,19 @@ void do_quit(void* userdata, int sig_num)
 void init_audio_pipewire(audio_handle* audio)
 {
     pw_init(0, NULL);
-
     printf("pipewire initialized\n");
     printf("headers version: %s\n", pw_get_headers_version());
     printf("library version: %s\n", pw_get_library_version());
 
     struct pw_data* d = &pipewire_data;
-    d->audio = audio;
+
+
+    int buff_size = audio->decode_min_buff_len*audio->audio_channels;
+
+
 
     const struct spa_pod* params[1];
-    uint8_t pw_audio_buff[BUFFER_SIZE];
+    uint8_t pw_audio_buff[1024];
     struct spa_pod_builder pod_b = SPA_POD_BUILDER_INIT(pw_audio_buff,sizeof(pw_audio_buff));
 
     d->main_loop = pw_main_loop_new(NULL);

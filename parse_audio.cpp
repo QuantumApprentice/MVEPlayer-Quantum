@@ -123,8 +123,6 @@ void init_audio(uint8_t* buff, uint8_t version)
     video_buffer.audio = &audio;
 
 
-
-
     switch (video_buffer.audio_pipe)
     {
     case ALSA:
@@ -138,18 +136,11 @@ void init_audio(uint8_t* buff, uint8_t version)
         break;
     case RINGBUFFER:
         init_audio_pipewire(&audio);
-        init_ring(buff_size);
+        init_ring(buff_size * audio.audio_channels);
         break;
     default:
         break;
     }
-
-    // init_ring(buff_size);
-    // if (video_buffer.audio_pipe == ALSA) {
-    //     init_audio_alsa(&audio);
-    // } else {
-    //     init_audio_pipewire(&audio);
-    // }
 }
 
 
@@ -311,27 +302,14 @@ void parse_audio_frame(uint8_t* buff, opcodeinfo op)
         // parse_audio_frame_pipewire();
         break;
     case PIPEWIRETHREAD:
-        push_samples((uint8_t*)audio.decode_buff, op.size-8);
+        push_samples((uint8_t*)audio.decode_buff, frame->length);
         break;
     case RINGBUFFER:
-        copy_to_ring((uint8_t*)audio.decode_buff, op.size-8);
-        signal_pipewire(op.size-8);
+        copy_to_ring((uint8_t*)audio.decode_buff, frame->length);
         break;
     default:
         break;
     }
-
-
-    // if (video_buffer.audio_pipe == ALSA) {
-    //     parse_audio_frame_alsa(&audio, frame->length);
-    // } else {
-    //     //multi thread pipewire doesn't need
-    //     //to call this, it's constantly running
-    //     //in a separate thread
-    //     // copy_to_ring((uint8_t*)audio.decode_buff, op.size-8);
-    //     printf("pushing samples: size %d\n", op.size - 8);
-    //     push_samples((uint8_t*)audio.decode_buff, op.size-8);
-    // }
 }
 
 void shutdown_audio()
@@ -354,13 +332,6 @@ void shutdown_audio()
     default:
         break;
     }
-
-    // if (video_buffer.audio_pipe == ALSA) {
-    //     shutdown_audio_alsa();
-    // } else {
-    //     shutdown_audio_pipewire();
-    // }
-
 
     free(audio.decode_buff);
     audio.decode_buff = NULL;
