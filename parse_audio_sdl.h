@@ -1,5 +1,5 @@
 #pragma once
 
-bool init_sdl(uint8_t* buff, int size);
+bool init_sdl();
 void play_sdl();
 void close_sdl();

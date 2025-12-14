@@ -25,7 +25,9 @@ bool rb_init(Ring_Buffer* rb, int size)
 
 void rb_free(Ring_Buffer* rb)
 {
-    free(rb->buff);
+    if (rb->buff) {
+        free(rb->buff);
+    }
     rb->buff = NULL;
     rb->size = 0;
 }

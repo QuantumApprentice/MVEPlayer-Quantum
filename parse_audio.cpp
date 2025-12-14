@@ -140,7 +140,8 @@ void init_audio(uint8_t* buff, uint8_t version)
         init_ring(buff_size * audio.audio_channels);
         break;
     case SDL_:
-        init_sdl((uint8_t*)audio.decode_buff, buff_size * audio.audio_channels);
+        init_sdl();
+        init_ring(buff_size * audio.audio_channels);
         break;
     default:
         break;
@@ -312,6 +313,7 @@ void parse_audio_frame(uint8_t* buff, opcodeinfo op)
         copy_to_ring((uint8_t*)audio.decode_buff, frame->length);
         break;
     case SDL_:
+        copy_to_ring((uint8_t*)audio.decode_buff, frame->length);
         play_sdl();
         break;
     default:
@@ -337,6 +339,7 @@ void shutdown_audio()
         shutdown_audio_pipewire();
         break;
     case SDL_:
+        free_ring();
         close_sdl();
         break;
     default:
