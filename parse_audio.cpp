@@ -4,6 +4,7 @@
 // #include "parse_audio_pipewire.h"
 #include "parse_audio_pipewire_thread.h"
 #include "ring_buffer.h"
+#include "parse_audio_sdl.h"
 
 extern video video_buffer;
 struct audio_handle audio;
@@ -137,6 +138,9 @@ void init_audio(uint8_t* buff, uint8_t version)
     case RINGBUFFER:
         init_audio_pipewire(&audio);
         init_ring(buff_size * audio.audio_channels);
+        break;
+    case SDL_:
+        init_sdl((uint8_t*)audio.decode_buff, buff_size * audio.audio_channels);
         break;
     default:
         break;
@@ -307,6 +311,9 @@ void parse_audio_frame(uint8_t* buff, opcodeinfo op)
     case RINGBUFFER:
         copy_to_ring((uint8_t*)audio.decode_buff, frame->length);
         break;
+    case SDL_:
+        play_sdl();
+        break;
     default:
         break;
     }
@@ -328,6 +335,9 @@ void shutdown_audio()
     case RINGBUFFER:
         free_ring();
         shutdown_audio_pipewire();
+        break;
+    case SDL_:
+        close_sdl();
         break;
     default:
         break;

@@ -27,6 +27,7 @@ struct timer_struct {
 #define PIPEWIRE        (1)
 #define PIPEWIRETHREAD  (2)
 #define RINGBUFFER      (3)
+#define SDL_            (4)
 struct video {
     //files
     bool file_drop_frame = false;
@@ -55,7 +56,7 @@ struct video {
     uint32_t seconds    = 2;
 
 
-    int audio_pipe     = RINGBUFFER;
+    int audio_pipe     = SDL_;
     // //ALSA
     // snd_pcm_t* pcm_handle;
     // snd_pcm_uframes_t frames;

@@ -641,6 +641,7 @@ void video_player()
         "pipewire\0"
         "pipewire threaded\0"
         "ringbuffer\0"
+        "sdl\0"
     );
     ImGui::PopItemWidth();
 

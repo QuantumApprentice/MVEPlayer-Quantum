@@ -12,6 +12,7 @@ target_sources(
     parse_audio_alsa.cpp
     # parse_audio_pipewire.cpp
     parse_audio_pipewire_thread.cpp
+    parse_audio_sdl.cpp
     parse_opcodes.cpp
     MiniSDL.cpp
     shader_class.cpp
@@ -34,9 +35,14 @@ target_compile_definitions(
   ${EXE_NAME}
   PUBLIC LINUX
 )
+
 find_package(ALSA)
+find_package(SDL2 REQUIRED)
+find_package(SDL2_mixer REQUIRED)
 target_link_libraries(${PROJECT_NAME}
     PRIVATE ALSA::ALSA
+    PRIVATE SDL2::SDL2
+    PRIVATE SDL2_mixer::SDL2_mixer
 )
 
 find_package(PkgConfig)
@@ -50,17 +56,6 @@ if (PkgConfig_FOUND)
     endif()
 
     pkg_check_modules(Pipewire libpipewire-0.3 REQUIRED)
-    # message(STATUS "bbbbbbb ${Pipewire_FOUND}")
-    # message(STATUS "ccccccc ${Pipewire_LIBRARIES}")
-    # message(STATUS "ddddddd ${Pipewire_LINK_LIBRARIES}")
-    # message(STATUS "eeeeeee ${Pipewire_LIBRARY_DIRS}")
-    # message(STATUS "fffffff ${Pipewire_LDFLAGS}")
-    # message(STATUS "ggggggg ${Pipewire_LDFLAGS_OTHER}")
-    # message(STATUS "hhhhhhh ${Pipewire_INCLUDE_DIRS}")
-    # message(STATUS "iiiiiii ${Pipewire_CFLAGS}")
-    # message(STATUS "jjjjjjj ${Pipewire_CFLAGS_OTHER}")
-    # message(STATUS "kkkkkkk ${Pipewire_MODULE_NAME}")
-
 endif()
 
 # pipewire compiler command arguments that ultimately gets run:
@@ -87,7 +82,6 @@ add_subdirectory(
 )
 add_subdirectory(
     dependencies/glad1/                 SYSTEM
-    # dependencies/glad-2.0.8/
 )
 
 target_include_directories(
