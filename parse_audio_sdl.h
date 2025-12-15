@@ -1,5 +1,5 @@
 #pragma once
 
-bool init_sdl();
-void play_sdl();
+bool init_sdl(struct audio_handle* audio);
+void play_sdl(bool pause);
 void close_sdl();

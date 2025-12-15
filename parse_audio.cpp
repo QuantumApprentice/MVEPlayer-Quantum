@@ -140,7 +140,7 @@ void init_audio(uint8_t* buff, uint8_t version)
         init_ring(buff_size * audio.audio_channels);
         break;
     case SDL_:
-        init_sdl();
+        init_sdl(&audio);
         init_ring(buff_size * audio.audio_channels);
         break;
     default:
@@ -278,6 +278,7 @@ void parse_audio_frame(uint8_t* buff, opcodeinfo op)
                 }
             }
         }
+        // convert from 8 bit mono to 16 bit stereo?
         // for (int i = 0; i < op.size-8; i++)
         // {
         //     int16_t sample = *(int16_t*)frame->data[i];
@@ -314,7 +315,28 @@ void parse_audio_frame(uint8_t* buff, opcodeinfo op)
         break;
     case SDL_:
         copy_to_ring((uint8_t*)audio.decode_buff, frame->length);
-        play_sdl();
+        play_sdl(video_buffer.pause);
+        break;
+    default:
+        break;
+    }
+}
+
+void pause_audio(bool pause)
+{
+    switch (video_buffer.audio_pipe)
+    {
+    case ALSA:
+        break;
+    case PIPEWIRE:
+        // parse_audio_frame_pipewire();
+        break;
+    case PIPEWIRETHREAD:
+        break;
+    case RINGBUFFER:
+        break;
+    case SDL_:
+        play_sdl(video_buffer.pause);
         break;
     default:
         break;

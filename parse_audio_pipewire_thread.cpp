@@ -348,6 +348,9 @@ void init_audio_pipewire(audio_handle* audio)
 void shutdown_audio_pipewire()
 {
     struct pw_data* d = &pipewire_data;
+    if (!d->thread_loop) {
+        return;
+    }
 
     pw_thread_loop_lock(d->thread_loop);
     pw_stream_destroy(d->stream);

@@ -628,7 +628,6 @@ void video_player()
     static bool render_on_chunk = false;        //TODO: do I want this anymore? currently unused
     ImVec2 pos = ImGui::GetCursorPos();
     static Chunk chunk;
-    static bool pause = false;
     static int which_file = 0;
     struct file_list { char filename[32]; } files[3] = {
         "../../testing/FO1/IPLOGO.MVE",
@@ -653,6 +652,7 @@ void video_player()
     if (ImGui::Button("Play MVE")) {
         file_loaded = load_file(filename);
         fps_info.next_frame = curr_time;// fps_info.frame_time / fps_info.speed;
+        shutdown_audio();
     }
 
     if (video_buffer.timer.rate != 0) {
@@ -669,10 +669,11 @@ void video_player()
     }
 
     bool step = false;
-    if (ImGui::Button(pause ? "Play" : "Pause")) {
-        pause = !pause;
+    if (ImGui::Button(video_buffer.pause ? "Play" : "Pause")) {
+        video_buffer.pause = !video_buffer.pause;
+        pause_audio(video_buffer.pause);
     }
-    if (pause) {
+    if (video_buffer.pause) {
         ImGui::SameLine();
         if (ImGui::Button("Frame Step")) {
             step = true;
@@ -773,7 +774,7 @@ void video_player()
 
     if (!fps_info.speed                     ||
         curr_time <= fps_info.next_frame    ||
-        (pause && chunk.info.type == CHUNK_video)) {
+        (video_buffer.pause && chunk.info.type == CHUNK_video)) {
         if (step) {
             // bypass the return for one click (should be same as one frame)
         } else {

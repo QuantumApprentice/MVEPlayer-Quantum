@@ -1,6 +1,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_mixer.h>
 
+#include "parse_audio.h"
 #include "parse_audio_sdl.h"
 #include "ring_buffer.h"
 
@@ -15,7 +16,7 @@ void playbackCB(void* userdata, uint8_t* stream, int len)
 }
 
 //Initialize SDL_mixer
-bool init_sdl()
+bool init_sdl(audio_handle* audio)
 {
     if (SDL_Init(SDL_INIT_AUDIO) < 0) {
         printf("Error initializing SDL! SDL Error: %s\n", SDL_GetError());
@@ -36,10 +37,10 @@ bool init_sdl()
     SDL_AudioSpec playbackSpec_rec;
     SDL_zero(playbackSpec_want);
     playbackSpec_want = {
-        .freq     = 22050,
-        .format   = AUDIO_S16LSB,
-        .channels = 2,
-        .samples  = 2048,
+        .freq     = (int)audio->audio_rate,
+        .format   = (uint16_t)(audio->audio_bits == 16 ? AUDIO_S16LSB : AUDIO_S8),
+        .channels = (uint8_t)audio->audio_channels,
+        .samples  = (uint16_t)audio->audio_samples_per_frame,
         .callback = playbackCB
     };
 
@@ -59,9 +60,9 @@ bool init_sdl()
     return true;
 }
 
-void play_sdl()
+void play_sdl(bool pause)
 {
-    SDL_PauseAudioDevice(playbackID, false);
+    SDL_PauseAudioDevice(playbackID, pause);
 }
 
 void close_sdl()
