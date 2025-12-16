@@ -6,20 +6,20 @@ set(EXE_NAME "QMVEPlayer_Quantum")
 add_executable(${EXE_NAME})
 target_sources(
     ${EXE_NAME} PRIVATE
-    main.cpp
-    parse_video.cpp
-    parse_audio.cpp
-    parse_audio_alsa.cpp
-    # parse_audio_pipewire.cpp
-    parse_audio_pipewire_thread.cpp
-    parse_audio_sdl.cpp
-    parse_opcodes.cpp
-    MiniSDL.cpp
-    shader_class.cpp
-    io_OpenGL.cpp
-    io_Platform.cpp
-    io_Timer.cpp
-    ring_buffer.cpp
+    src/main.cpp
+    src/parse_video.cpp
+    src/parse_audio.cpp
+    src/parse_audio_alsa.cpp
+    # src/parse_audio_pipewire.cpp
+    src/parse_audio_pipewire_thread.cpp
+    src/parse_audio_sdl.cpp
+    src/parse_opcodes.cpp
+    src/MiniSDL.cpp
+    src/shader_class.cpp
+    src/io_OpenGL.cpp
+    src/io_Platform.cpp
+    src/io_Timer.cpp
+    src/ring_buffer.cpp
 )
 
 # Windows compile stuff
