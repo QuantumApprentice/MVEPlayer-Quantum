@@ -146,6 +146,12 @@ int available_ring()
     return rb_avail(&rb);
 }
 
+int used_ring()
+{
+    rb_used(&rb);
+}
+
+
 void init_ring(int size)
 {
     bool success = rb_init(&rb, size);

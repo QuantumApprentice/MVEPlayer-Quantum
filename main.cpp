@@ -21,6 +21,7 @@ bool enable_vsync     = true;
 #include "parse_opcodes.h"
 #include "parse_video.h"
 #include "parse_audio.h"
+#include "ring_buffer.h"
 
 #include "io_Platform.h"
 #include "io_Timer.h"
@@ -567,6 +568,24 @@ void show_audio_info(ImVec2 pos)
             "Compression      ---\n"
         );
     }
+
+    // show amount of audio ring buffer used
+    static float vals[101] = {};
+    int index = video_buffer.frame_count % 100;
+    char total_str[100] = {};
+    if (used_ring() > 0 || available_ring() > 0) {
+        int used = used_ring();
+        int avail = available_ring();
+        int total = used + avail;
+
+        snprintf(total_str, 100, "Size %d", total);
+        float percent_used = 100*(float)used / (float)(total);
+        vals[index] = percent_used;
+        vals[index+1] = 0;
+    }
+
+    ImGui::SetCursorPosX(x);
+    ImGui::PlotLines("###buf", vals, 100, 0, total_str, 0.0f, 100.0f, ImVec2(135,35));
 }
 
 void plot_fps(ImVec2 pos, float time)
