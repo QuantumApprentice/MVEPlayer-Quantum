@@ -79,7 +79,7 @@ void init_audio(uint8_t* buff, uint8_t version)
         min_buff_len = v1.min_buff_len;
     }
 
-    int channels = 1;   //TODO: might need to experiment when converting mono to stereo
+    int channels = 1;   //TODO: need to experiment when converting mono to stereo
     int bits     = 8;
     int compress = false;
     if (flags & 0x1) {   //0=mono, 1=stereo
@@ -104,19 +104,23 @@ void init_audio(uint8_t* buff, uint8_t version)
     int fps         = 15;
     int samples_per_frame = audio.audio_rate/fps;
 
+    //TODO: docs are wrong for frame.length
+    //      actual  input length is frame.length/(bytes per channel)
+    //      actual output length is frame.length
 
-    // video_buffer.audio_samples_per_frame = samples_per_frame;
     audio.audio_samples_per_frame = samples_per_frame;
 
 
     int buff_size;
     if (audio.decode_min_buff_len > 0) {
-        buff_size = audio.decode_min_buff_len;
+        buff_size = audio.decode_min_buff_len * audio.audio_channels;
     } else {
-        buff_size = samples_per_frame;
+        buff_size = samples_per_frame * audio.audio_channels;
     }
     //allocate buffer
     if (!audio.decode_buff) {
+        //TODO: init ringbuffer here? and remove decode_buff?
+        //      I don't think this is used except in older code
         audio.decode_buff = (int16_t*)calloc(buff_size*sizeof(int16_t), 1);
         audio.decode_buff_size = buff_size;
     }
@@ -137,11 +141,11 @@ void init_audio(uint8_t* buff, uint8_t version)
         break;
     case RINGBUFFER:
         init_audio_pipewire(&audio);
-        init_ring(buff_size * audio.audio_channels);
+        init_ring(buff_size);
         break;
     case SDL_:
         init_sdl(&audio);
-        init_ring(buff_size * audio.audio_channels);
+        init_ring(buff_size);
         break;
     default:
         break;
@@ -183,9 +187,9 @@ void decompress_8(uint8_t* buff, int len)
 
 
 //stereo
-void decompress_16(uint8_t* buff, int len)
+void decompress_16(uint8_t* uncompressed, int len)
 {
-    int16_t* buff_16 = (int16_t*)buff;
+    int16_t* buff_16 = (int16_t*)uncompressed;
     int16_t* audio_buff = audio.decode_buff;
     if (audio.audio_channels == 1) {     //mono
         // int16_t last = buff_16[0];
@@ -201,8 +205,8 @@ void decompress_16(uint8_t* buff, int len)
         for (int i = 0; i < len; i++)
         {
             int idx   = i*2;
-            int val_l = buff[i];
-            // int val_r = buff[idx+1];
+            int val_l = uncompressed[i];
+            // int val_r = uncompressed[idx+1];
             int16_t l_curr = delta_table[val_l] + l_last;
             int16_t r_curr = delta_table[val_l] + r_last;
 
@@ -214,19 +218,21 @@ void decompress_16(uint8_t* buff, int len)
         }
     }
     if (audio.audio_channels == 2) {     //stereo
-        int16_t l_last = buff_16[0];
-        int16_t r_last = buff_16[1];
+        int16_t l_last = buff_16[len +0];
+        int16_t r_last = buff_16[len +1];
 
-        for (int i = 2; i < len/2; i++)
+        audio_buff[0] = l_last *video_buffer.audio_volume /8;
+        audio_buff[1] = r_last *video_buffer.audio_volume /8;
+
+        for (int i = 4; i < len; i+=2)
         {
-            int idx   = i*2;
-            int val_l = buff[idx+0];
-            int val_r = buff[idx+1];
+            int val_l      = uncompressed[i+0];
+            int val_r      = uncompressed[i+1];
             int16_t l_curr = delta_table[val_l] + l_last;
             int16_t r_curr = delta_table[val_r] + r_last;
 
-            audio_buff[idx +0] = l_curr *video_buffer.audio_volume /8;
-            audio_buff[idx +1] = r_curr *video_buffer.audio_volume /8;
+            audio_buff[i -2] = l_curr *video_buffer.audio_volume /8;
+            audio_buff[i -1] = r_curr *video_buffer.audio_volume /8;
 
             l_last = l_curr;
             r_last = r_curr;
@@ -287,13 +293,13 @@ void parse_audio_frame(uint8_t* buff, opcodeinfo op)
     }
 
     if (audio.audio_compress == 1) {
-        uint8_t decompress_buff[65536] = {0};
-        memcpy(decompress_buff, frame->data, op.size-8);
+        uint8_t raw_buff[65536] = {0};
+        memcpy(raw_buff, frame->data, op.size-8);   //uncompressed data copied in
         if (audio.audio_bits == 8 ) {
-            decompress_8(decompress_buff, op.size-8);
+            decompress_8(raw_buff, op.size-8);
         }
         if (audio.audio_bits == 16) {
-            decompress_16(decompress_buff, op.size-8);
+            decompress_16(raw_buff, op.size-8);
         }
 
     }

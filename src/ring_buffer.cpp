@@ -39,7 +39,7 @@ int rb_used(Ring_Buffer* rb)
     if (used < 0) {
         used += rb->size;
     }
-    printf("rb audio used after: %d\n", used);
+    // printf("rb audio used after: %d\n", used);
     return used;
 }
 
@@ -63,7 +63,7 @@ int rb_write(Ring_Buffer* rb, uint8_t* src_buff, int src_size)
     int write_idx  = rb->write_idx;
     int to_end_size = min(src_size, rb->size - write_idx);
 
-    printf("rb audio write_index: %d write_size: %d src_size: %d to_end size: %d\n", write_idx, write_size, src_size, to_end_size);
+    // printf("rb audio write_index: %d write_size: %d src_size: %d to_end size: %d\n", write_idx, write_size, src_size, to_end_size);
 
     memcpy(&rb->buff[write_idx], src_buff, to_end_size);
     if (to_end_size != write_size) {
@@ -95,7 +95,7 @@ int rb_read(Ring_Buffer* rb, uint8_t* dst_buff, int dst_size)
     int read_idx  = rb->read_idx;
     int to_end_size = min(read_size, rb->size - rb->read_idx);
 
-    printf("rb audio read_index: %d read_size: %d src_size: %d to_end size: %d\n", read_idx, read_size, dst_size, to_end_size);
+    // printf("rb audio read_index: %d read_size: %d src_size: %d to_end size: %d\n", read_idx, read_size, dst_size, to_end_size);
 
     memcpy(dst_buff, &rb->buff[read_idx], to_end_size);
     if (to_end_size != read_size) {
@@ -155,6 +155,9 @@ int used_ring()
 void init_ring(int size)
 {
     bool success = rb_init(&rb, size);
+    if (!success) {
+        printf("ERROR: Unable to allocate ringbuffer.");
+    }
 }
 
 void free_ring()
