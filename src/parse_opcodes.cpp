@@ -23,6 +23,7 @@ void parse_chunk_ops(uint8_t* chunk, chunkinfo info)
 
 void parse_opcode(opcodeinfo op, uint8_t* buffer)
 {
+    //keep count of how many opcodes of each type are used
     video_buffer.opcode_type[op.type]++;
 
     switch (op.type)

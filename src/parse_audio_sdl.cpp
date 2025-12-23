@@ -67,5 +67,7 @@ void play_sdl(bool pause)
 
 void close_sdl()
 {
+    SDL_CloseAudioDevice(playbackID);
+    playbackID = 0;
     SDL_Quit();
 }

@@ -348,14 +348,14 @@ bool load_file(char* filename)
         video_buffer.frnt_buffer = NULL;
         video_buffer.back_buffer = NULL;
     }
-    if (video_buffer.audio->decode_buff) {
+    // if (video_buffer.audio && video_buffer.audio->decode_buff) {
         //TODO: what should I do with this?
         //      -I like alsa's behavior with this
         //      but pipewire just seems like ass
         //      -at least I want to restart quick
         //      instead of waiting for buffer to empty
-        // shutdown_audio();
-    }
+        shutdown_audio();
+    // }
 
     video_buffer.fileptr = open_file(filename);
     if (!video_buffer.fileptr) {
@@ -584,8 +584,10 @@ void show_audio_info(ImVec2 pos)
         vals[index+1] = 0;
     }
 
-    ImGui::SetCursorPosX(x);
-    ImGui::PlotLines("###buf", vals, 100, 0, total_str, 0.0f, 100.0f, ImVec2(135,35));
+    // ImGui::SetCursorPosX(x);
+    // ImGui::PlotLines("###buf", vals, 100, 0, total_str, 0.0f, 100.0f, ImVec2(135,35));
+    ImGui::SetCursorPos({x+150,y+600});
+    ImGui::PlotLines("###buf", vals, 100, 0, total_str, 0.0f, 100.0f, ImVec2(400,100));
 }
 
 void plot_fps(ImVec2 pos, float time)

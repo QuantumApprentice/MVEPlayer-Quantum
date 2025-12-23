@@ -148,7 +148,7 @@ int available_ring()
 
 int used_ring()
 {
-    rb_used(&rb);
+    return rb_used(&rb);
 }
 
 
