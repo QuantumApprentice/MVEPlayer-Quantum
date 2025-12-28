@@ -16,7 +16,7 @@ struct alsa_handle {
     snd_pcm_t*           pcm_handle;
     snd_pcm_hw_params_t* audio_params;
     snd_pcm_uframes_t    frames;
-    _snd_pcm_format bitsWide = SND_PCM_FORMAT_U8;
+    _snd_pcm_format bitsWide = SND_PCM_FORMAT_S8;
     _snd_pcm_access intrLeav = SND_PCM_ACCESS_RW_NONINTERLEAVED;
 } alsa;
 
@@ -181,54 +181,48 @@ void fill_audio_alsa(audio_handle* audio)
 //      bakerstaunch
 //      snd_pcm_avail_delay
 //      snd_pcm_delay
-void parse_audio_frame_alsa(audio_handle* audio, uint16_t buff_len)
+void parse_audio_frame_alsa(audio_handle* audio, uint16_t decode_len)
 {
-    int len = buff_len / 4;  //total number of samples in this chunk
+    // int len = decode_len / 4;  //total number of samples in this chunk
     int16_t* audio_buff = (int16_t*)audio->decode_buff;
+
+    // one audio frame is the total size of one audio sample for each channel
+    // for 16-bit stereo that would 2-bytes per channel, or 4-bytes total
+    int bytes_per_frame = audio->audio_bits/8 * audio->audio_channels;
+    int frame_count = decode_len / bytes_per_frame;
 
     uint32_t tmp;
     snd_pcm_hw_params_get_rate(alsa.audio_params, &tmp, 0);
     printf("parsing audio : rate: %d bps file-rate: %d\n", tmp, audio->audio_rate);
 
-    while (len > 0) {
+    while (frame_count > 0) {
 
         snd_pcm_sframes_t avail = 0;
         snd_pcm_sframes_t delay = 0;
 
         int wut = snd_pcm_avail_delay(alsa.pcm_handle, &avail, &delay);
         printf("time: %u\t delay: %d\t avail: %d\n", io_nano_time(), delay, avail);
-        printf("handle: %0x buff[0-3]: %0x length: %d\n", alsa.pcm_handle, *(int32_t*)audio_buff, len);
+        printf("handle: %0x buff[0-3]: %0x length: %d\n", alsa.pcm_handle, *(int32_t*)audio_buff, frame_count);
 
-        //TODO: static bool is temporary fix to get the buffer
-        //      to be filled correctly at least for the first frames
-        // static bool prepared = false;
-        // if (!prepared) {
-        //     prepared = true;
-        //     //TODO: docs say this is automatic, but tutorial has it manually https://equalarea.com/paul/alsa-audio.html
-        //     int err = snd_pcm_prepare(alsa.pcm_handle);
-        //     if (err < 0) {
-        //         fprintf (stderr, "cannot prepare audio interface for use (%s)\n",
-        //                 snd_strerror (err));
-        //         return;
-        //         // exit (1);
-        //     }
-        // }
+
+
+
 
         int32_t offset = 0;
         if (audio->audio_bits == 8) {
             int8_t* buff_8 = (int8_t*)audio->decode_buff;
-            offset = snd_pcm_writei(alsa.pcm_handle, buff_8, len);
+            offset = snd_pcm_writei(alsa.pcm_handle, buff_8, frame_count);
         }
         if (audio->audio_bits == 16) {
             // if (audio->audio_channels == 1) {
-            //     offset = snd_pcm_writen(alsa.pcm_handle, (void**)&audio_buff, len);
+            //     offset = snd_pcm_writen(alsa.pcm_handle, (void**)&audio_buff, frame_count);
             // } else {
-                offset = snd_pcm_writei(alsa.pcm_handle, audio_buff, len);
+                offset = snd_pcm_writei(alsa.pcm_handle, audio_buff, frame_count);
             // }
         }
 
 
-        // printf("time: %u\t offset: %d\t remainder: %d\n", io_nano_time(), offset, len);
+        // printf("time: %u\t offset: %d\t remainder: %d\n", io_nano_time(), offset, frame_count);
 
         if (offset < 0) {
             if (offset == -EPIPE) {    // Broken pipe (I think this means its not working?)
@@ -241,14 +235,14 @@ void parse_audio_frame_alsa(audio_handle* audio, uint16_t buff_len)
                 break;
             }
         }
-        if (offset != len) {
+        if (offset != frame_count) {
             fprintf (stderr, "write to audio interface failed (%s)\n",
                 snd_strerror (offset));
             return;
         }
 
-        audio_buff += offset*2;
-        len        -= offset;
+        audio_buff  += offset*2;
+        frame_count -= offset;
     }
 }
 

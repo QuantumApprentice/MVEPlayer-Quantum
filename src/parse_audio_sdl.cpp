@@ -26,7 +26,7 @@ bool init_sdl(audio_handle* audio)
 
     int audioDeviceCount = SDL_GetNumAudioDevices(false);
     if (audioDeviceCount < 1) {
-        printf( "Unable to enumerate audio devices! SDL Error: %s\n", SDL_GetError() );
+        printf( "Unable to enumerate audio devices! SDL Error: %s\n", SDL_GetError());
         return false;
     }
     for (int i = 0; i < audioDeviceCount; i++)
@@ -34,8 +34,9 @@ bool init_sdl(audio_handle* audio)
         printf("SDL Audio Device Name: %d : %s\n", i, SDL_GetAudioDeviceName(i,false));
     }
     SDL_AudioSpec playbackSpec_want;
-    SDL_AudioSpec playbackSpec_rec;
+    SDL_AudioSpec playbackSpec_got;
     SDL_zero(playbackSpec_want);
+    SDL_zero(playbackSpec_got);
     playbackSpec_want = {
         .freq     = (int)audio->audio_rate,
         .format   = (uint16_t)(audio->audio_bits == 16 ? AUDIO_S16LSB : AUDIO_S8),
@@ -48,7 +49,7 @@ bool init_sdl(audio_handle* audio)
         NULL,
         false,
         &playbackSpec_want,
-        &playbackSpec_rec,
+        &playbackSpec_got,
         SDL_AUDIO_ALLOW_FORMAT_CHANGE
     );
 

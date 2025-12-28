@@ -501,9 +501,9 @@ void plot_audio_waveform(ImVec2 pos)
 
     ImVec2 size = ImGui::GetItemRectSize();
     size.x /= 2;
-    ImGui::PlotHistogram("###left",  left, spf, 0, "left", -2000.0f, 2000.0f, size);//ImVec2({400, 80.0f}));
+    ImGui::PlotHistogram("###left",  left, spf, 0, "left", -3000.0f, 3000.0f, size);//ImVec2({400, 80.0f}));
     ImGui::SameLine();
-    ImGui::PlotHistogram("###right", rght, spf, 0, "right", -2000.0f, 2000.0f, size);//ImVec2({400, 80.0f}));
+    ImGui::PlotHistogram("###right", rght, spf, 0, "right", -3000.0f, 3000.0f, size);//ImVec2({400, 80.0f}));
 
 }
 
@@ -572,13 +572,13 @@ void show_audio_info(ImVec2 pos)
     // show amount of audio ring buffer used
     static float vals[101] = {};
     int index = video_buffer.frame_count % 100;
-    char total_str[100] = {};
+    char total_str[64] = {};
     if (used_ring() > 0 || available_ring() > 0) {
         int used = used_ring();
         int avail = available_ring();
         int total = used + avail;
 
-        snprintf(total_str, 100, "Size %d", total);
+        snprintf(total_str, 64, "Size %d", total);
         float percent_used = 100*(float)used / (float)(total);
         vals[index] = percent_used;
         vals[index+1] = 0;
@@ -746,12 +746,13 @@ void video_player()
 
     ImGui::PopItemWidth();
     ImGui::PushItemWidth(100);
-    if (ImGui::DragFloat("V", &video_buffer.audio_volume, .001f)) {
-        // fill_audio_alsa(video_buffer.audio_freq);
+    float temp_volume = .5f;
+    if (ImGui::DragFloat("V", video_buffer.audio ? &video_buffer.audio->audio_volume : &temp_volume, .001f)) {
+        // fill_audio_alsa(audio.audio_freq);
     }
     // ImGui::SameLine();
-    // if (ImGui::DragInt("F", &video_buffer.audio_freq)) {
-    //     // fill_audio_alsa(video_buffer.audio_freq);
+    // if (ImGui::DragInt("F", &audio.audio_freq)) {
+    //     // fill_audio_alsa(audio.audio_freq);
     // }
     ImGui::PopItemWidth();
 

@@ -40,29 +40,13 @@ struct video {
     int pitch;
 
     // //audio
-    struct audio_handle* audio;
-    // int16_t* audio_buff    = NULL;
-    // int audio_buff_size    = 0;
-    // int audio_min_buff_len = 0;
-    float audio_volume     = 0.5f;
+    struct audio_handle* audio = NULL;
     bool pause = false;
-    // int audio_freq         = 210;
-    // uint32_t audio_rate    = 48000;
-    // uint32_t audio_channels = 2;
-    // int audio_samples_per_frame;
-    // int audio_bits         = 0;
-    // int audio_compress     = 0;
-    // // int audio_calc_rate = 0;
 
     uint32_t seconds    = 2;
 
 
-    int audio_pipe     = SDL_;
-    // //ALSA
-    // snd_pcm_t* pcm_handle;
-    // snd_pcm_uframes_t frames;
-    // snd_pcm_hw_params_t* audio_params;
-    // //Pipewire
+    int audio_pipe     = ALSA;
 
     int map_size;
     uint8_t* map_stream = NULL;

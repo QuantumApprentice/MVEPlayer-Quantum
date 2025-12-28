@@ -177,7 +177,7 @@ void decompress_8(uint8_t* compressed, int decode_len)
         for (int i = 1; i < sample_count; i++)
         {
             int8_t curr = delta_table[compressed[i]] + last;
-            audio_buff[i] = curr*video_buffer.audio_volume /8;
+            audio_buff[i] = curr *audio.audio_volume /8;
             last = curr;
         }
     }
@@ -197,8 +197,8 @@ void decompress_8(uint8_t* compressed, int decode_len)
             int8_t l_curr = delta_table[compressed[i +0]] + l_last;
             int8_t r_curr = delta_table[compressed[i +1]] + r_last;
 
-            audio_buff[i +0] = (l_curr)*video_buffer.audio_volume /8;
-            audio_buff[i +1] = (r_curr)*video_buffer.audio_volume /8;
+            audio_buff[i +0] = (l_curr)*audio.audio_volume /8;
+            audio_buff[i +1] = (r_curr)*audio.audio_volume /8;
 
             l_last = l_curr;
             r_last = r_curr;
@@ -220,33 +220,31 @@ void decompress_16(uint8_t* compressed, int decode_len)
     // and the 4-byte offset to frame 3 accounted for when when
     // indexing through the compressed buffer.
     // mono is similar at 2 bytes for the first frame
-    int frame_count = decode_len / 2;   // 2 bytes per frame at 16-bits
+    int sample_count = decode_len / 2;   // 2 bytes per frame at 16-bits
 
     int16_t* buff_16 = (int16_t*)compressed;
     int16_t* audio_buff = audio.decode_buff;
     if (audio.audio_channels == 1) {     //mono
         //TODO: add a check for file channel count vs hardware
         // if hardware mono is available
-        int16_t last = buff_16[0];
-        for (int i = 1; i < frame_count; i++)
+        int16_t last = audio_buff[0] = buff_16[0];
+        for (int i = 1; i < sample_count; i++)
         {
             int16_t curr = delta_table[compressed[i+1]] + last;
-            audio_buff[i] = curr *video_buffer.audio_volume/8;
+            audio_buff[i] = curr *audio.audio_volume/8;
             last = curr;
         }
 
         // // if hardware only supports stereo
-        // int16_t l_last = buff_16[0] *video_buffer.audio_volume /8;
-        // int16_t r_last = buff_16[0] *video_buffer.audio_volume /8;
-        // for (int i = 1; i < frame_count; i++)
+        // int16_t l_last = buff_16[0] *audio.audio_volume /8;
+        // int16_t r_last = buff_16[0] *audio.audio_volume /8;
+        // for (int i = 1; i < sample_count; i++)
         // {
         //     int l_idx = compressed[i +1];
         //     int16_t l_curr = delta_table[l_idx] + l_last;
         //     int16_t r_curr = delta_table[l_idx] + r_last;
-
-        //     audio_buff[i +0] = l_curr *video_buffer.audio_volume /8;
-        //     audio_buff[i +1] = r_curr *video_buffer.audio_volume /8;
-
+        //     audio_buff[i +0] = l_curr *audio.audio_volume /8;
+        //     audio_buff[i +1] = r_curr *audio.audio_volume /8;
         //     l_last = l_curr;
         //     r_last = r_curr;
         // }
@@ -255,19 +253,19 @@ void decompress_16(uint8_t* compressed, int decode_len)
         int16_t l_last = buff_16[0];
         int16_t r_last = buff_16[1];
 
-        audio_buff[0] = l_last *video_buffer.audio_volume /8;
-        audio_buff[1] = r_last *video_buffer.audio_volume /8;
+        audio_buff[0] = l_last *audio.audio_volume /8;
+        audio_buff[1] = r_last *audio.audio_volume /8;
 
 
-        for (int i = 2; i < frame_count; i+=2)
+        for (int i = 2; i < sample_count; i+=2)      // this is counting by audio frames
         {
             int l_indx     = compressed[i +2];
             int r_indx     = compressed[i +3];
             int16_t l_curr = delta_table[l_indx] + l_last;
             int16_t r_curr = delta_table[r_indx] + r_last;
 
-            audio_buff[i +0] = l_curr *video_buffer.audio_volume /8;
-            audio_buff[i +1] = r_curr *video_buffer.audio_volume /8;
+            audio_buff[i +0] = l_curr *audio.audio_volume /8;
+            audio_buff[i +1] = r_curr *audio.audio_volume /8;
 
             l_last = l_curr;
             r_last = r_curr;
@@ -305,16 +303,16 @@ void parse_audio_frame(uint8_t* buff, opcodeinfo op)
                 for (int i = 0; i < frame->decode_len; i++)
                 {
                     int8_t sample = frame->data[i];
-                    audio_buff_8[i] = sample*video_buffer.audio_volume/8;
+                    audio_buff_8[i] = sample *audio.audio_volume/8;
                 }
             }
             if (audio.audio_channels == 2) {
-                for (int i = 0; i < frame->decode_len/2; i+=2)
+                for (int i = 0; i < frame->decode_len; i+=2)
                 {
                     int8_t l_curr = frame->data[i +0];
                     int8_t r_curr = frame->data[i +1];
-                    audio_buff_8[i +0] = l_curr*video_buffer.audio_volume/8;
-                    audio_buff_8[i +1] = r_curr*video_buffer.audio_volume/8;
+                    audio_buff_8[i +0] = l_curr *audio.audio_volume/8;
+                    audio_buff_8[i +1] = r_curr *audio.audio_volume/8;
                 }
             }
         }
@@ -322,8 +320,13 @@ void parse_audio_frame(uint8_t* buff, opcodeinfo op)
         // for (int i = 0; i < op.size-8; i++)
         // {
         //     int16_t sample = *(int16_t*)frame->data[i];
-        //     audio.audio_buff[i] = sample*video_buffer.audio_volume/8;
+        //     audio.audio_buff[i] = sample*audio.audio_volume/8;
         // }
+    }
+
+    if (op.size > 65536) {
+        printf("ERROR: Audio uncompressed buffer not big enough.\n");
+        return;
     }
 
     if (audio.audio_compress == 1) {
@@ -397,11 +400,9 @@ void shutdown_audio()
         shutdown_audio_pipewire();
         break;
     case RINGBUFFER:
-        free_ring();
         shutdown_audio_pipewire();
         break;
     case SDL_:
-        free_ring();
         close_sdl();
         break;
     default:
@@ -412,4 +413,5 @@ void shutdown_audio()
         free(audio.decode_buff);
     }
     audio.decode_buff = NULL;
+    free_ring();
 }

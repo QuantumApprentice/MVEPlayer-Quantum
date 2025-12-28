@@ -307,7 +307,7 @@ void init_audio_pipewire(audio_handle* audio)
 
     //TODO: need to handle audio configs per file here?
     static struct spa_audio_info_raw audio_info = {
-        .format   = SPA_AUDIO_FORMAT_S16,
+        .format   = audio->audio_bits == 16 ? SPA_AUDIO_FORMAT_S16 : SPA_AUDIO_FORMAT_S8,
         .flags    = 0,
         .rate     = audio->audio_rate,
         .channels = audio->audio_channels,
