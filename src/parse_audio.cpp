@@ -227,7 +227,8 @@ void decompress_16(uint8_t* compressed, int decode_len)
     if (audio.audio_channels == 1) {     //mono
         //TODO: add a check for file channel count vs hardware
         // if hardware mono is available
-        int16_t last = audio_buff[0] = buff_16[0];
+        int16_t last = buff_16[0];
+        audio_buff[0] = last *audio.audio_volume/8;
         for (int i = 1; i < sample_count; i++)
         {
             int16_t curr = delta_table[compressed[i+1]] + last;

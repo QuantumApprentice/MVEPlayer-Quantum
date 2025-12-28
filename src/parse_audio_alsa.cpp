@@ -183,7 +183,6 @@ void fill_audio_alsa(audio_handle* audio)
 //      snd_pcm_delay
 void parse_audio_frame_alsa(audio_handle* audio, uint16_t decode_len)
 {
-    // int len = decode_len / 4;  //total number of samples in this chunk
     int16_t* audio_buff = (int16_t*)audio->decode_buff;
 
     // one audio frame is the total size of one audio sample for each channel
@@ -191,9 +190,11 @@ void parse_audio_frame_alsa(audio_handle* audio, uint16_t decode_len)
     int bytes_per_frame = audio->audio_bits/8 * audio->audio_channels;
     int frame_count = decode_len / bytes_per_frame;
 
-    uint32_t tmp;
-    snd_pcm_hw_params_get_rate(alsa.audio_params, &tmp, 0);
-    printf("parsing audio : rate: %d bps file-rate: %d\n", tmp, audio->audio_rate);
+    // uint32_t got_rate, got_channels;
+    // snd_pcm_hw_params_get_rate(alsa.audio_params, &got_rate, 0);
+    // snd_pcm_hw_params_get_channels(alsa.audio_params, &got_channels);
+    // printf("parsing audio : rate: %d bps file-rate: %d\n", got_rate, audio->audio_rate);
+    // printf("parsing audio : channels: %d bps file-channels: %d\n", got_channels, audio->audio_channels);
 
     while (frame_count > 0) {
 
