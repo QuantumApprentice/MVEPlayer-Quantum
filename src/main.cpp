@@ -485,6 +485,7 @@ void plot_audio_waveform(ImVec2 pos)
     static float left[4096] = {};
     static float rght[4096] = {};
     int spf = 0;
+    float max, min;
 
     if (video_buffer.audio) {
         if (video_buffer.audio->audio_bits == 8) {
@@ -494,8 +495,13 @@ void plot_audio_waveform(ImVec2 pos)
                 {
                     left[i] = audio_buff[i +0];
                     rght[i] = audio_buff[i +1];
+                    if (left[i] > max) {
+                        max = left[i];
+                    }
                 }
             }
+            spf = video_buffer.audio->audio_samples_per_frame;
+            min = 0.0f;
         }
         if (video_buffer.audio->audio_bits == 16) {
             int16_t* audio_buff = (int16_t*)video_buffer.audio->decode_buff;
@@ -504,6 +510,12 @@ void plot_audio_waveform(ImVec2 pos)
                 {
                     left[i] = audio_buff[i*2 +0];
                     rght[i] = audio_buff[i*2 +1];
+                    if (left[i] > max) {
+                        max = left[i];
+                    }
+                    if (left[i] < min) {
+                        min = left[i];
+                    }
                 }
             }
             spf = video_buffer.audio->audio_samples_per_frame;
@@ -513,9 +525,9 @@ void plot_audio_waveform(ImVec2 pos)
 
     ImVec2 size = ImGui::GetItemRectSize();
     size.x /= 2;
-    ImGui::PlotHistogram("###left",  left, spf, 0, "left", -3000.0f, 3000.0f, size);//ImVec2({400, 80.0f}));
+    ImGui::PlotHistogram("###left",  left, spf, 0, "left", min, max, size);//ImVec2({400, 80.0f}));
     ImGui::SameLine();
-    ImGui::PlotHistogram("###right", rght, spf, 0, "right", -3000.0f, 3000.0f, size);//ImVec2({400, 80.0f}));
+    ImGui::PlotHistogram("###right", rght, spf, 0, "right", min, max, size);//ImVec2({400, 80.0f}));
 
 }
 
