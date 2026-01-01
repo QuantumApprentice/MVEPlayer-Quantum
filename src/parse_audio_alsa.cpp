@@ -6,6 +6,7 @@
 
 
 #include <alsa/asoundlib.h>
+#include <alsa/control.h>
 
 #include "io_Timer.h"
 #include "parse_opcodes.h"
@@ -16,21 +17,25 @@ struct alsa_handle {
     snd_pcm_t*           pcm_handle;
     snd_pcm_hw_params_t* audio_params;
     snd_pcm_uframes_t    frames;
-    _snd_pcm_format bitsWide = SND_PCM_FORMAT_S8;
-    _snd_pcm_access intrLeav = SND_PCM_ACCESS_RW_NONINTERLEAVED;
+    _snd_pcm_format bitsWide = SND_PCM_FORMAT_U8;
+    _snd_pcm_access intrLeav = SND_PCM_ACCESS_RW_INTERLEAVED; //SND_PCM_ACCESS_RW_NONINTERLEAVED; //possibly necessary for mono if there are hardware issues
 } alsa;
 
 void init_audio_alsa(audio_handle* audio)
 {
 
-    if (audio->audio_channels == 2) {
-        alsa.intrLeav = SND_PCM_ACCESS_RW_INTERLEAVED;
+    if (audio->audio_bits == 8) {
+        alsa.bitsWide = SND_PCM_FORMAT_U8;
     }
     if (audio->audio_bits == 16) {
         alsa.bitsWide = SND_PCM_FORMAT_S16_LE;
     }
-
-
+    // if (audio->audio_channels == 1) {
+    //     alsa.intrLeav = SND_PCM_ACCESS_RW_INTERLEAVED;
+    // }
+    // if (audio->audio_channels == 2) {
+    //     alsa.intrLeav = SND_PCM_ACCESS_RW_INTERLEAVED;
+    // }
 
 
     int err;
@@ -38,7 +43,6 @@ void init_audio_alsa(audio_handle* audio)
     if (err < 0) {
         printf("ALSA Audio ERROR: Can't open '%s' PCM devicel. %s\n", "default", snd_strerror(err));
         return;
-        // exit (1);
     }
 
     // snd_pcm_hw_params_alloca(&alsa.audio_params);
@@ -47,14 +51,19 @@ void init_audio_alsa(audio_handle* audio)
         fprintf (stderr, "ALSA Audio ERROR: Cannot allocate hardware parameter structure (%s)\n",
                 snd_strerror (err));
         return;
-        // exit (1);
     }
 
     //TODO: if this errors randomly then remove the error check
     err = snd_pcm_hw_params_any(alsa.pcm_handle, alsa.audio_params);
     if (err < 0) {
         fprintf (stderr, "ALSA Audio ERROR: Cannot initialize hardware parameter structure (%s)\n",
-            snd_strerror (err));
+            snd_strerror(err));
+    }
+
+    err = snd_pcm_hw_params_set_format(alsa.pcm_handle, alsa.audio_params, alsa.bitsWide);
+    if (err < 0) {
+        printf("ALSA Audio ERROR: Can't set format. %s\n",snd_strerror(err));
+        return;
     }
 
     //set params
@@ -62,28 +71,18 @@ void init_audio_alsa(audio_handle* audio)
     if (err < 0) {
         printf("ALSA Audio ERROR: Can't set interleaved mode. %s\n", snd_strerror(err));
         return;
-        // exit (1);
-    }
-
-    err = snd_pcm_hw_params_set_format(alsa.pcm_handle, alsa.audio_params, alsa.bitsWide);
-    if (err < 0) {
-        printf("ALSA Audio ERROR: Can't set format. %s\n",snd_strerror(err));
-        return;
-        // exit (1);
     }
 
     err = snd_pcm_hw_params_set_rate_near(alsa.pcm_handle, alsa.audio_params, &audio->audio_rate, 0);
     if (err < 0) {
         printf("ALSA Audio ERROR: Can't set rate. %s\n", snd_strerror(err));
         return;
-        // exit (1);
     }
 
     err = snd_pcm_hw_params_set_channels(alsa.pcm_handle, alsa.audio_params, audio->audio_channels);
     if (err < 0) {
         printf("ALSA Audio ERROR: Can't set channels count. %s\n", snd_strerror(err));
         return;
-        // exit (1);
     }
 
     //write params
@@ -91,7 +90,6 @@ void init_audio_alsa(audio_handle* audio)
     if (err < 0) {
         printf("ALSA Audio ERROR: Can't set hardware params. %s\n", snd_strerror(err));
         return;
-        // exit (1);
     }
 
     //TODO: docs say this is automatic, but tutorial has it manually https://equalarea.com/paul/alsa-audio.html
@@ -100,7 +98,6 @@ void init_audio_alsa(audio_handle* audio)
         fprintf (stderr, "ALSA Audio ERROR: Cannot prepare audio interface for use (%s)\n",
                 snd_strerror (err));
         return;
-        // exit (1);
     }
 
     //resume info?
@@ -110,25 +107,37 @@ void init_audio_alsa(audio_handle* audio)
     //so we _set_ the params earlier
     //  and here we _get_ the params
     //  to make sure they were set?
-    uint32_t tmp;
-    snd_pcm_hw_params_get_channels(alsa.audio_params, &tmp);
-    printf("channels: %i ", tmp);
+    uint32_t hw_channels;
+    snd_pcm_hw_params_get_channels(alsa.audio_params, &hw_channels);
+    printf("hw_channels: %i ", hw_channels);
 
-    if (tmp == 1) {
-        printf("(mono)\n");
+    if (hw_channels == 1) {
+        if (audio->audio_channels == 1) {
+            printf("(mono)\n");
+        } else {
+            printf("Error: hardware forced mono\n");
+        }
     } else
-    if (tmp == 2) {
-        printf("(stereo)\n");
+    if (hw_channels == 2) {
+        if (audio->audio_channels == 2) {
+            printf("(stereo)\n");
+        } else {
+            printf("Error: hardware forced stereo\n");
+        }
+    }
+    if (hw_channels > 2) {
+        printf("Error: hardware is doing something weird! Channel count: %d\n", hw_channels);
     }
 
-    snd_pcm_hw_params_get_rate(alsa.audio_params, &tmp, 0);
-    printf("init audio : rate: %d bps file-rate: %d\n", tmp, audio->audio_rate);
+    snd_pcm_hw_params_get_rate(alsa.audio_params, &hw_channels, 0);
+    printf("init audio : rate: %d bps file-rate: %d\n", hw_channels, audio->audio_rate);
     // printf("seconds: %d (although really what use is this?)\n", audio->seconds);
 
     // allocate? buffer to hold single period?
     //wait, does this assign something to frames?
     snd_pcm_hw_params_get_period_size(alsa.audio_params, &alsa.frames, 0);
 
+    // TODO: delete - used for testing
     // fill_audio_alsa(audio->audio_freq);
 
     return;
@@ -190,11 +199,13 @@ void parse_audio_frame_alsa(audio_handle* audio, uint16_t decode_len)
     int bytes_per_frame = audio->audio_bits/8 * audio->audio_channels;
     int frame_count = decode_len / bytes_per_frame;
 
-    // uint32_t got_rate, got_channels;
-    // snd_pcm_hw_params_get_rate(alsa.audio_params, &got_rate, 0);
-    // snd_pcm_hw_params_get_channels(alsa.audio_params, &got_channels);
-    // printf("parsing audio : rate: %d bps file-rate: %d\n", got_rate, audio->audio_rate);
-    // printf("parsing audio : channels: %d bps file-channels: %d\n", got_channels, audio->audio_channels);
+    uint32_t got_rate, got_channels, bits;
+    snd_pcm_hw_params_get_rate(alsa.audio_params, &got_rate, 0);
+    snd_pcm_hw_params_get_channels(alsa.audio_params, &got_channels);
+    bits = snd_pcm_hw_params_get_sbits(alsa.audio_params);
+    printf("parsing audio : rate: %d bps file-rate: %d\n", got_rate, audio->audio_rate);
+    printf("parsing audio : channels: %d file-channels: %d\n", got_channels, audio->audio_channels);
+    printf("parsing audio : bits %d      file-bits: %d\n", bits, audio->audio_bits);
 
     while (frame_count > 0) {
 
@@ -215,11 +226,7 @@ void parse_audio_frame_alsa(audio_handle* audio, uint16_t decode_len)
             offset = snd_pcm_writei(alsa.pcm_handle, buff_8, frame_count);
         }
         if (audio->audio_bits == 16) {
-            // if (audio->audio_channels == 1) {
-            //     offset = snd_pcm_writen(alsa.pcm_handle, (void**)&audio_buff, frame_count);
-            // } else {
-                offset = snd_pcm_writei(alsa.pcm_handle, audio_buff, frame_count);
-            // }
+            offset = snd_pcm_writei(alsa.pcm_handle, audio_buff, frame_count);
         }
 
 
@@ -245,6 +252,11 @@ void parse_audio_frame_alsa(audio_handle* audio, uint16_t decode_len)
         audio_buff  += offset*2;
         frame_count -= offset;
     }
+}
+
+void play_alsa(bool pause)
+{
+    snd_pcm_pause(alsa.pcm_handle, pause);
 }
 
 void shutdown_audio_alsa()

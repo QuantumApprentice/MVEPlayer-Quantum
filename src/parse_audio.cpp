@@ -1,3 +1,8 @@
+// falltergeist - attempt at remaking game engine w/sdl audio
+// https://github.com/falltergeist/falltergeist/blob/32cbee70af05eab32cd3907f9387c64ce66d1366/src/UI/MvePlayer.cpp#L39
+// ffmpeg links
+// https://ffmpeg.org/doxygen/trunk/ipmovie_8c_source.html
+// https://ffmpeg.org/doxygen/trunk/interplayvideo_8c_source.html
 #include "parse_audio.h"
 
 #include "parse_audio_alsa.h"
@@ -92,6 +97,7 @@ void init_audio(uint8_t* buff, uint8_t version)
         compress = true;
     }
 
+    audio.version                   = version;
     audio.audio_channels            = channels;
     audio.audio_rate                = sample_rate;
     audio.audio_bits                = bits;
@@ -173,7 +179,7 @@ void decompress_8(uint8_t* compressed, int decode_len)
     // but the rest of the buffer should be compressed
     if (audio.audio_channels == 1) {     //mono
         int8_t last = compressed[0];
-        audio_buff[0] = last;
+        audio_buff[0] = last *audio.audio_volume /8;
         for (int i = 1; i < sample_count; i++)
         {
             int8_t curr = delta_table[compressed[i]] + last;
@@ -296,7 +302,6 @@ void parse_audio_frame(uint8_t* buff, opcodeinfo op)
     frame_count++;
     printf("audio frame render count: %d size of output: %d\n",frame_count, frame->decode_len);
 
-    // audio.audio_calc_rate += frame->decode_len;
     if (audio.audio_compress == 0) {    // audio is uncompressed by default
         int8_t* audio_buff_8 = (int8_t*)audio.decode_buff;
         if (audio.audio_bits == 8) {
@@ -371,6 +376,7 @@ void pause_audio(bool pause)
     switch (video_buffer.audio_pipe)
     {
     case ALSA:
+        play_alsa(video_buffer.pause);
         break;
     case PIPEWIRE:
         // parse_audio_frame_pipewire();

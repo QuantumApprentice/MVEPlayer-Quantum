@@ -551,10 +551,12 @@ void show_audio_info(ImVec2 pos)
     ImGui::SetCursorPos({x,y});
     if (video_buffer.audio) {
         ImGui::Text(
+            "Version: %d\n"
             "Audio Rate: %dHz\n"
             "Channels: %d %s\n"
             "Bits per Channel:%d\n"
             "Compression %s\n"
+            , video_buffer.audio->version
             , video_buffer.audio->audio_rate
             , video_buffer.audio->audio_channels, video_buffer.audio->audio_channels == 1 ? "(Mono)" : "(Stereo)"
             , video_buffer.audio->audio_bits
@@ -562,6 +564,7 @@ void show_audio_info(ImVec2 pos)
         );
     } else {
         ImGui::Text(
+            "Version:         ---\n"
             "Audio Rate:      ---\n"
             "Channels:        ---\n"
             "Bits per Channel: --\n"
@@ -668,7 +671,10 @@ void video_player()
     char* filename = video_buffer.filename ? video_buffer.filename : files[which_file].filename;
     if (video_buffer.file_drop_frame) {
         video_buffer.file_drop_frame = false;
+
         file_loaded = load_file(filename);
+        fps_info.next_frame = curr_time;// fps_info.frame_time / fps_info.speed;
+        shutdown_audio();
     }
     if (ImGui::Button("Play MVE")) {
         file_loaded = load_file(filename);

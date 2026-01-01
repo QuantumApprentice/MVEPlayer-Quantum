@@ -39,7 +39,8 @@ target_compile_definitions(
 find_package(ALSA)
 find_package(SDL2 REQUIRED)
 find_package(SDL2_mixer REQUIRED)
-target_link_libraries(${PROJECT_NAME}
+target_link_libraries(
+    ${PROJECT_NAME}
     PRIVATE ALSA::ALSA
     PRIVATE SDL2::SDL2
     PRIVATE SDL2_mixer::SDL2_mixer
