@@ -487,15 +487,27 @@ void plot_audio_waveform(ImVec2 pos)
     int spf = 0;
 
     if (video_buffer.audio) {
-        int16_t* audio_buff = (int16_t*)video_buffer.audio->decode_buff;
-        if (audio_buff) {
-            for (int i = 0; i < video_buffer.audio->audio_samples_per_frame; i++)
-            {
-                left[i] = audio_buff[i*2 +0];
-                rght[i] = audio_buff[i*2 +1];
+        if (video_buffer.audio->audio_bits == 8) {
+            uint8_t* audio_buff = (uint8_t*)video_buffer.audio->decode_buff;
+            if (audio_buff) {
+                for (int i = 0; i < video_buffer.audio->audio_samples_per_frame; i++)
+                {
+                    left[i] = audio_buff[i +0];
+                    rght[i] = audio_buff[i +1];
+                }
             }
         }
-        spf = video_buffer.audio->audio_samples_per_frame;
+        if (video_buffer.audio->audio_bits == 16) {
+            int16_t* audio_buff = (int16_t*)video_buffer.audio->decode_buff;
+            if (audio_buff) {
+                for (int i = 0; i < video_buffer.audio->audio_samples_per_frame; i++)
+                {
+                    left[i] = audio_buff[i*2 +0];
+                    rght[i] = audio_buff[i*2 +1];
+                }
+            }
+            spf = video_buffer.audio->audio_samples_per_frame;
+        }
     }
 
 

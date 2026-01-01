@@ -8,7 +8,7 @@ struct audio_handle {
 
     int decode_min_buff_len = 0;
 
-    float audio_volume     = 0.5f;
+    float audio_volume     = 0.02f;
 
     int version            = 0;
     int audio_freq         = 210;

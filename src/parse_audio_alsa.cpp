@@ -30,12 +30,6 @@ void init_audio_alsa(audio_handle* audio)
     if (audio->audio_bits == 16) {
         alsa.bitsWide = SND_PCM_FORMAT_S16_LE;
     }
-    // if (audio->audio_channels == 1) {
-    //     alsa.intrLeav = SND_PCM_ACCESS_RW_INTERLEAVED;
-    // }
-    // if (audio->audio_channels == 2) {
-    //     alsa.intrLeav = SND_PCM_ACCESS_RW_INTERLEAVED;
-    // }
 
 
     int err;
