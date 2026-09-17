@@ -164,6 +164,11 @@ void create_timer(uint8_t* buffer)
 {
     memcpy(&video_buffer.timer, buffer, sizeof(video_buffer.timer));
 
+    // had to set the samples_per_frame here because this is the first
+    // place that gets timer info, even though other init could use it
+    int fps = 1000000.0f/(video_buffer.timer.rate*video_buffer.timer.subdivision);
+    int samples_per_frame = video_buffer.audio->audio_rate/fps;
+    video_buffer.audio->audio_samples_per_frame = samples_per_frame;
 #ifdef DEBUG
     printf("frame rate: %d, subdivision: %d\n", video_buffer.timer.rate, video_buffer.timer.subdivision);
 #endif

@@ -6,6 +6,16 @@
 // - Getting Started      https://dearimgui.com/getting-started
 // - Documentation        https://dearimgui.com/docs (same as your local docs/ folder).
 // - Introduction, links and more at the top of imgui.cpp
+
+// // source docs for the MVE file format
+// https://fodev.net/files/fo2/mve.html
+// https://falloutmods.fandom.com/wiki/MVE_File_Format
+// https://github.com/fallout2-ce/fallout2-ce/blob/main/src/movie_lib.cc
+// falltergeist - attempt at remaking game engine w/sdl audio
+// https://github.com/falltergeist/falltergeist/blob/32cbee70af05eab32cd3907f9387c64ce66d1366/src/UI/MvePlayer.cpp#L39
+// ffmpeg links
+// https://ffmpeg.org/doxygen/trunk/ipmovie_8c_source.html
+// https://ffmpeg.org/doxygen/trunk/interplayvideo_8c_source.html
 bool show_demo_window = false;
 bool enable_vsync     = true;
 
@@ -333,10 +343,8 @@ enum CHUNK {
     CHUNK_end         =  5,
 };
 
-bool load_file(char* filename)
+void close_file()
 {
-    printf("Parsing %s\n", filename);
-
     if (video_buffer.fileptr) {
         fclose(video_buffer.fileptr);
         video_buffer.fileptr = NULL;
@@ -348,6 +356,14 @@ bool load_file(char* filename)
         video_buffer.frnt_buffer = NULL;
         video_buffer.back_buffer = NULL;
     }
+}
+
+bool load_file(char* filename)
+{
+    printf("Parsing %s\n", filename);
+
+    close_file();
+
     // if (video_buffer.audio && video_buffer.audio->decode_buff) {
         //TODO: what should I do with this?
         //      -I like alsa's behavior with this
@@ -478,38 +494,32 @@ void plot_chunk_usage(ImVec2 pos)
     ImGui::PlotLines("###vcpf", values, 100, 0, overlay, -1.0f, 10.0f, ImVec2(0, 80.0f));
 }
 
-//left and right audio channels
+// plots left and right audio channels
+// if mono, then both channels have same waveform
 void plot_audio_waveform(ImVec2 pos)
 {
     ImGui::SetCursorPosX(pos.x+400);
     static float left[4096] = {};
     static float rght[4096] = {};
     int spf = 0;
-    float max, min;
+    float max = 0;
+    float min = 0;
+
+
+    static int fc = 0;
 
     if (video_buffer.audio) {
+        spf = video_buffer.audio->audio_samples_per_frame > 4096 ? 4096 : video_buffer.audio->audio_samples_per_frame;
         if (video_buffer.audio->audio_bits == 8) {
             uint8_t* audio_buff = (uint8_t*)video_buffer.audio->decode_buff;
             if (audio_buff) {
-                for (int i = 0; i < video_buffer.audio->audio_samples_per_frame; i++)
+                for (int i = 0; i < spf; i++)
                 {
-                    left[i] = audio_buff[i +0];
-                    rght[i] = audio_buff[i +1];
-                    if (left[i] > max) {
-                        max = left[i];
-                    }
-                }
-            }
-            spf = video_buffer.audio->audio_samples_per_frame;
-            min = 0.0f;
-        }
-        if (video_buffer.audio->audio_bits == 16) {
-            int16_t* audio_buff = (int16_t*)video_buffer.audio->decode_buff;
-            if (audio_buff) {
-                for (int i = 0; i < video_buffer.audio->audio_samples_per_frame; i++)
-                {
-                    left[i] = audio_buff[i*2 +0];
-                    rght[i] = audio_buff[i*2 +1];
+                    // This is going to assume all 8-bit audio is unsigned for now
+                    // TODO: change this if there happens to be some signed 8-bit audio
+                    left[i] = (int32_t)audio_buff[i +0] - 128;
+                    rght[i] = (int32_t)audio_buff[i +1] - 128;
+
                     if (left[i] > max) {
                         max = left[i];
                     }
@@ -518,17 +528,31 @@ void plot_audio_waveform(ImVec2 pos)
                     }
                 }
             }
-            spf = video_buffer.audio->audio_samples_per_frame;
+        }
+        if (video_buffer.audio->audio_bits == 16) {
+            int16_t* audio_buff = (int16_t*)video_buffer.audio->decode_buff;
+            if (audio_buff) {
+                for (int i = 0; i < spf; i++)
+                {
+                    left[i] = audio_buff[i*2 +0];
+                    rght[i] = audio_buff[i*2 +1];
+
+                    if (left[i] > max) {
+                        max = left[i];
+                    }
+                    if (left[i] < min) {
+                        min = left[i];
+                    }
+                }
+            }
         }
     }
 
-
     ImVec2 size = ImGui::GetItemRectSize();
     size.x /= 2;
-    ImGui::PlotHistogram("###left",  left, spf, 0, "left", min, max, size);//ImVec2({400, 80.0f}));
+    ImGui::PlotHistogram("###left",  left, spf, 0, "left", min, max, size);
     ImGui::SameLine();
-    ImGui::PlotHistogram("###right", rght, spf, 0, "right", min, max, size);//ImVec2({400, 80.0f}));
-
+    ImGui::PlotHistogram("###right", rght, spf, 0, "right", min, max, size);
 }
 
 void show_block_info(ImVec2 pos, float scale)
@@ -601,15 +625,19 @@ void show_audio_info(ImVec2 pos)
     int index = video_buffer.frame_count % 100;
     char total_str[64] = {};
     if (used_ring() > 0 || available_ring() > 0) {
-        int used = used_ring();
+        int used  = used_ring();
         int avail = available_ring();
         int total = used + avail;
 
-        snprintf(total_str, 64, "Size %d", total);
+        snprintf(total_str, 64, "Ringbuffer Usage/Total: %d", total);
         float percent_used = 100*(float)used / (float)(total);
         vals[index] = percent_used;
         vals[index+1] = 0;
     }
+    //  else {
+    //     //TODO: this doesn't appear anyway, need to find a better/working solution
+    //     ImGui::Text("alsa doesn't use a ring\n");
+    // }
 
     // ImGui::SetCursorPosX(x);
     // ImGui::PlotLines("###buf", vals, 100, 0, total_str, 0.0f, 100.0f, ImVec2(135,35));
@@ -705,24 +733,19 @@ void video_player()
         fps_info.next_frame = curr_time;// fps_info.frame_time / fps_info.speed;
         shutdown_audio();
     }
-
-    if (video_buffer.timer.rate != 0) {
-        ImGui::SameLine();
-        int rate = video_buffer.timer.rate;
-        int subd = video_buffer.timer.subdivision;
-        float target_fps = 1000000.0f/(rate*subd);
-        ImGui::Text("Target FPS: %f", target_fps);
-        ImGui::SetItemTooltip(
-            "rate (ms to display frame/subdivision) : %d\n"
-            "subdivision (dunno, so far always 8)   : %d\n"
-            "FPS = 1,000,000.0f / (rate*subd)", rate, subd
-        );
+    ImGui::SameLine();
+    if (ImGui::Button("Stop")) {
+        shutdown_audio();
+        close_file();
+        file_loaded = false;
     }
 
     bool step = false;
     if (ImGui::Button(video_buffer.pause ? "Play" : "Pause")) {
         video_buffer.pause = !video_buffer.pause;
-        pause_audio(video_buffer.pause);
+        if (file_loaded) {
+            pause_audio(video_buffer.pause);
+        }
     }
     if (video_buffer.pause) {
         ImGui::SameLine();
@@ -731,6 +754,19 @@ void video_player()
         }
         ImGui::SameLine();
         ImGui::Text("Frame #%d", video_buffer.frame_count);
+    }
+
+    if (video_buffer.timer.rate != 0) {
+        ImGui::SameLine();
+        int rate = video_buffer.timer.rate;
+        int subd = video_buffer.timer.subdivision;
+        float target_fps = 1000000.0f/(rate*subd);
+        ImGui::Text("Target FPS: %2.3f", target_fps);
+        ImGui::SetItemTooltip(
+            "rate (ms to display frame/subdivision) : %d\n"
+            "subdivision (dunno, so far always 8)   : %d\n"
+            "FPS = 1,000,000.0f / (rate*subd)", rate, subd
+        );
     }
 
     // instead of
@@ -748,7 +784,7 @@ void video_player()
     ImGui::Text("%.3f", 1000.0f/((float)fps_info.diff_time/1'000'000.0));
     // int32_t frame_time = mve_timer.rate*mve_timer.subdivision*1000;
 
-    fps_info.mve_timer = video_buffer.timer;
+    fps_info.mve_timer  = video_buffer.timer;
     fps_info.frame_time = fps_info.mve_timer.rate*fps_info.mve_timer.subdivision*1000;
 
     plot_fps(pos, 1000.0f/((float)fps_info.diff_time/1'000'000.0));
@@ -777,7 +813,7 @@ void video_player()
     ImGui::PopItemWidth();
     ImGui::PushItemWidth(100);
     float temp_volume = .5f;
-    if (ImGui::DragFloat("V", video_buffer.audio ? &video_buffer.audio->audio_volume : &temp_volume, .001f)) {
+    if (ImGui::DragFloat("Volume", video_buffer.audio ? &video_buffer.audio->audio_volume : &temp_volume, .001f, 0.0f, 100.0f)) {
         // fill_audio_alsa(audio.audio_freq);
     }
     // ImGui::SameLine();
@@ -852,8 +888,7 @@ void video_player()
         bool render_frame = parse_chunk(chunk);
         if (chunk.info.type == CHUNK_end) {
             if (video_buffer.fileptr) {
-                fclose(video_buffer.fileptr);
-                video_buffer.fileptr = NULL;
+                close_file();
             }
             file_loaded = false;
         }
@@ -883,33 +918,35 @@ Chunk read_chunk(FILE* fileptr)
     fread(&chunk.info, sizeof(chunk.info), 1, fileptr);
     chunk.chunk = (uint8_t*)calloc(1, chunk.info.size);
     fread(chunk.chunk, chunk.info.size, 1, fileptr);
-    // static int chunk_count = 0;
-    // printf("chunk #%d -- size: %d type: %d\n", chunk_count, chunk.info.size, chunk.info.type);
+    #ifdef DEBUG
+        static int chunk_count = 0;
+        printf("chunk #%d -- size: %d type: %d\n", chunk_count, chunk.info.size, chunk.info.type);
+    #endif
 
     return chunk;
 }
 
 bool parse_chunk(Chunk chunk)
 {
+    #ifdef DEBUG
+        static int chunk_cnt = 0;
+        printf("Processing chunk #%d\n", chunk_cnt++);
+    #endif
+    //TODO: clean this switch case up
     bool render_frame = false;
     switch (chunk.info.type)
     {
     case CHUNK_init_audio:
         printf("initing audio\n");
-        // parse_op(chunk.chunk, chunk.info);
         parse_chunk_ops(chunk.chunk, chunk.info);
-        // init_audio(chunk.chunk, chunk.info);
         break;
     case CHUNK_audio:
         printf("processing audio\n");
         parse_chunk_ops(chunk.chunk, chunk.info);
-        // parse_audio_frame(chunk.chunk);
-        //TODO: process the audio
         break;
     case CHUNK_init_video:
         printf("initing video\n");
         parse_chunk_ops(chunk.chunk, chunk.info);
-        // init_video(chunk.chunk, chunk.info);
         break;
     case CHUNK_video:
         printf("processing video\n");
@@ -935,6 +972,8 @@ bool parse_chunk(Chunk chunk)
         break;
     }
 
-    // printf("video frame %d processed\n", video_buffer.frame_count);
+    #ifdef DEBUG
+        printf("video frame %d processed\n", video_buffer.frame_count);
+    #endif
     return render_frame;
 }

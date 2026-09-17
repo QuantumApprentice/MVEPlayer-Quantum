@@ -52,20 +52,20 @@ void init_audio(uint8_t* buff, uint8_t version)
     struct audio_info_v0 {
         int16_t unk;
         int16_t flags;
-        int16_t sample_rate;
+        uint16_t sample_rate;
         int16_t min_buff_len;
     } v0;
     struct audio_info_v1 {
         int16_t unk;
         int16_t flags;
-        int16_t sample_rate;
+        uint16_t sample_rate;
         int32_t min_buff_len;
     } v1;
     #pragma pack(pop)
 
     int16_t unk;
     int16_t flags;
-    int16_t sample_rate;
+    uint16_t sample_rate; //turns out sample rate should be read as unsigned so 44100 can fit
     int32_t min_buff_len;
 
 
@@ -104,24 +104,21 @@ void init_audio(uint8_t* buff, uint8_t version)
     audio.audio_compress            = compress;
     audio.decode_min_buff_len       = min_buff_len;
 
-
-    //get size to allocate
-    // int fps = 1000000.0f/(video_buffer.timer.rate*video_buffer.timer.subdivision);
-    int fps         = 15;
-    int samples_per_frame = audio.audio_rate/fps;
-
     //TODO: docs are wrong for frame.length
-    //      actual  input length is frame.length/(bytes per channel)
+    //      actual  input length is frame.length/(bytes per channel)+(bytes per frame)*channels-channels
     //      actual output length is frame.length
-
-    audio.audio_samples_per_frame = samples_per_frame;
 
 
     int buff_size;
     if (audio.decode_min_buff_len > 0) {
         buff_size = audio.decode_min_buff_len * audio.audio_channels;
     } else {
-        buff_size = samples_per_frame * audio.audio_channels;
+        // buff_size = samples_per_frame * audio.audio_channels;
+        buff_size = 1024*1024;  // just make a 1Mb buffer
+        // not sure of a better approach until samples per frame can be calculated from the timer
+        // and since the timer info isn't always in the init audio chunk, who knows when that will be
+        // scummvm apparently uses a queueing system, seems complicated to implement, but might be better
+        // https://github.com/scummvm/scummvm/blob/9d045f76ac0c11caffed39083c0d8fb8eabc9d1e/video/mve_decoder.cpp#L337
     }
     //allocate buffer
     // if (!audio.decode_buff) {
@@ -172,8 +169,9 @@ int32_t clamp_volume(int val, float vol, int bits)
 {
     int32_t output;
     if (bits == 8) {
-        output = ((int32_t)val) * vol;
+        output = ((int32_t)val - 128) * vol + 128;
         if (output > 255) output = 255;
+        if (output < 0  ) output = 0;
     }
     if (bits == 16) {
         output = ((int32_t)val) * vol;
@@ -319,7 +317,7 @@ void parse_audio_frame(uint8_t* buff, opcodeinfo op)
 
     static int frame_count = 0;
     frame_count++;
-    printf("audio frame render count: %d size of output: %d\n",frame_count, frame->decode_len);
+    printf("audio frame render count: %d : index: %d : size of output: %d\n", frame_count, frame->index, frame->decode_len);
 
     if (audio.audio_compress == 0) {    // audio is uncompressed by default
         uint8_t* audio_buff_8 = (uint8_t*)audio.decode_buff;
@@ -329,7 +327,7 @@ void parse_audio_frame(uint8_t* buff, opcodeinfo op)
                     uint8_t sample = frame->data[i];
                     audio_buff_8[i] = clamp_volume(sample, audio.audio_volume, audio.audio_bits);
                 }
-            }
+            } else
             if (audio.audio_channels == 2) {
                 for (int i = 0; i < frame->decode_len; i+=2) {
                     uint8_t l_curr = frame->data[i +0];
@@ -337,6 +335,8 @@ void parse_audio_frame(uint8_t* buff, opcodeinfo op)
                     audio_buff_8[i +0] = (uint8_t)clamp_volume(l_curr, audio.audio_volume, audio.audio_bits);
                     audio_buff_8[i +1] = (uint8_t)clamp_volume(r_curr, audio.audio_volume, audio.audio_bits);
                 }
+            } else {
+                printf("ERROR: wtf is up with the audio_channels: %d\n", audio.audio_channels);
             }
         }
         // convert from 8 bit mono to 16 bit stereo?
@@ -411,6 +411,7 @@ void pause_audio(bool pause)
 
 void shutdown_audio()
 {
+    // shutdown the hardware
     switch (video_buffer.audio_pipe)
     {
     case ALSA:
@@ -432,6 +433,7 @@ void shutdown_audio()
         break;
     }
 
+    // free the local buffer
     if (audio.decode_buff) {
         free(audio.decode_buff);
     }
