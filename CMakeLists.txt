@@ -9,6 +9,7 @@ target_sources(
     src/main.cpp
     src/parse_video.cpp
     src/parse_audio.cpp
+    src/parse_subtitles.cpp
     src/parse_audio_alsa.cpp
     # src/parse_audio_pipewire.cpp
     src/parse_audio_pipewire_thread.cpp

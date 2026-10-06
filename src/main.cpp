@@ -1,11 +1,4 @@
-// Dear ImGui: standalone example application for GLFW + OpenGL 3, using programmable pipeline
-// (GLFW is a cross-platform general purpose library for handling windows, inputs, OpenGL/Vulkan/Metal graphics context creation, etc.)
-
-// Learn about Dear ImGui:
-// - FAQ                  https://dearimgui.com/faq
-// - Getting Started      https://dearimgui.com/getting-started
-// - Documentation        https://dearimgui.com/docs (same as your local docs/ folder).
-// - Introduction, links and more at the top of imgui.cpp
+// https://github.com/QuantumApprentice/MVEPlayer-Quantum
 
 // // source docs for the MVE file format
 // https://fodev.net/files/fo2/mve.html
@@ -16,6 +9,17 @@
 // ffmpeg links
 // https://ffmpeg.org/doxygen/trunk/ipmovie_8c_source.html
 // https://ffmpeg.org/doxygen/trunk/interplayvideo_8c_source.html
+
+// Dear ImGui: standalone example application for GLFW + OpenGL 3, using programmable pipeline
+// (GLFW is a cross-platform general purpose library for handling windows, inputs, OpenGL/Vulkan/Metal graphics context creation, etc.)
+
+// Learn about Dear ImGui:
+// - FAQ                  https://dearimgui.com/faq
+// - Getting Started      https://dearimgui.com/getting-started
+// - Documentation        https://dearimgui.com/docs (same as your local docs/ folder).
+// - Introduction, links and more at the top of imgui.cpp
+
+
 bool show_demo_window = false;
 bool enable_vsync     = true;
 
@@ -31,6 +35,7 @@ bool enable_vsync     = true;
 #include "parse_opcodes.h"
 #include "parse_video.h"
 #include "parse_audio.h"
+#include "parse_subtitles.h"
 #include "ring_buffer.h"
 
 #include "io_Platform.h"
@@ -183,7 +188,9 @@ int main(int, char**)
 
         ImGui::Begin("MVE Player!");
         ImGui::Text("Application average %.3f ms/frame (%.6f FPS)", 1000.0f / io.Framerate, io.Framerate);
+
         video_player();
+
         ImGui::End();
 
 
@@ -392,6 +399,17 @@ bool load_file(char* filename)
         }
     }
     return true;
+}
+
+//TODO: move this to io_Platform
+bool check_ext(char* file, const char* ext)
+{
+    char* file_ext = strrchr(file, '.') + 1;
+    int cmp = strncasecmp(file_ext, ext, 4);
+    if (cmp == 0) {
+        return true;
+    }
+    return false;
 }
 
 void block_select(ImVec2 pos, float scale)
@@ -666,6 +684,7 @@ void video_stats()
     );
 }
 
+// video
 void show_video(ImVec2 pos, float scale)
 {
     float x = pos.x;
@@ -697,6 +716,47 @@ struct framerate {
     timer_struct mve_timer = {};
 } fps_info;
 
+// subtitles
+void show_subtitles(int curr_frame, subtitles* subs)
+{
+    static char subs_buffer[256] = {0};
+    ImGui::Text("%s", subs_buffer);
+
+    if (subs->sub_list == nullptr) {
+        return;
+    }
+
+    static int prev_frame        = 0;
+    static int next_frame        = 0;
+    static int curr_sub          = 0;
+    bool wait = false;
+
+    if (next_frame == 0) {
+        next_frame = subs->sub_list[curr_sub].frame_start;
+        wait = true;
+    }
+
+    if (curr_frame >= next_frame) {
+        if (!wait) {
+            curr_sub++;
+        }
+        prev_frame = subs->sub_list[curr_sub].frame_start;
+        if ((curr_sub < subs->count) && subs->sub_list[curr_sub].subtitle) {
+            next_frame = subs->sub_list[curr_sub+1].frame_start;
+
+            int copy_len =  (subs->sub_list[curr_sub].length < 256) ? subs->sub_list[curr_sub].length : 256;
+            strncpy(subs_buffer, subs->sub_list[curr_sub].subtitle, copy_len);
+            subs_buffer[subs->sub_list[curr_sub].length] = '\0';
+        }
+    }
+    if (curr_frame < prev_frame) {
+        prev_frame = 0;
+        next_frame = 0;
+        curr_sub   = 0;
+    }
+}
+
+
 void video_player()
 {
     uint64_t curr_time = io_nano_time();
@@ -724,9 +784,18 @@ void video_player()
     if (video_buffer.file_drop_frame) {
         video_buffer.file_drop_frame = false;
 
-        file_loaded = load_file(filename);
-        fps_info.next_frame = curr_time;// fps_info.frame_time / fps_info.speed;
-        shutdown_audio();
+        if (check_ext(filename, "sve")) {
+            if (video_buffer.subs.data) {
+                free(video_buffer.subs.data);
+                free(video_buffer.subs.sub_list);
+            }
+            video_buffer.subs = load_subs(filename);
+        }
+        if (check_ext(filename, "mve")) {
+            file_loaded = load_file(filename);
+            fps_info.next_frame = curr_time;// fps_info.frame_time / fps_info.speed;
+            shutdown_audio();
+        }
     }
     if (ImGui::Button("Play MVE")) {
         file_loaded = load_file(filename);
@@ -752,9 +821,9 @@ void video_player()
         if (ImGui::Button("Frame Step")) {
             step = true;
         }
-        ImGui::SameLine();
-        ImGui::Text("Frame #%d", video_buffer.frame_count);
     }
+    ImGui::SameLine();
+    ImGui::Text("Frame #%d", video_buffer.frame_count);
 
     if (video_buffer.timer.rate != 0) {
         ImGui::SameLine();
@@ -847,6 +916,17 @@ void video_player()
     //video
     if (video_buffer.pxls) {
         show_video({pos.x+400,pos.y},scale);
+        //subtitles
+        ImGui::SetCursorPosX(pos.x+400);
+        if (ImGui::Button("Load Subtitles")) {
+            if (video_buffer.subs.data) {
+                free(video_buffer.subs.data);
+                free(video_buffer.subs.sub_list);
+            }
+            video_buffer.subs = load_subs(filename);
+        }
+        ImGui::SameLine();
+        show_subtitles(video_buffer.frame_count, &video_buffer.subs);
     } else {
         if (!file_loaded) {
             ImGui::SetCursorPosX(pos.x+600);

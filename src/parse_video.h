@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "parse_opcodes.h"
 #include "parse_audio.h"
+#include "parse_subtitles.h"
 // #include "parse_audio_pipewire.h"
 
 // #include <alsa/asoundlib.h>
@@ -47,6 +48,7 @@ struct video {
 
 
     int audio_pipe     = ALSA;
+    subtitles subs;
 
     int map_size;
     uint8_t* map_stream = NULL;
