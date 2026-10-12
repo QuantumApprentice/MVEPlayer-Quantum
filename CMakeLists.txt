@@ -18,7 +18,7 @@ target_sources(
     src/MiniSDL.cpp
     src/shader_class.cpp
     src/io_OpenGL.cpp
-    src/io_Platform.cpp
+    # src/io_Platform.cpp
     src/io_Timer.cpp
     src/ring_buffer.cpp
 )

@@ -38,7 +38,7 @@ bool enable_vsync     = true;
 #include "parse_subtitles.h"
 #include "ring_buffer.h"
 
-#include "io_Platform.h"
+// #include "io_Platform.h"
 #include "io_Timer.h"
 #include <malloc.h>
 
@@ -56,8 +56,60 @@ int get_filesize(FILE* fileptr);
 void video_player();
 void show_block_info(ImVec2 pos, float scale);
 
+enum FILE_DROP_TYPE {
+    NONE = 0,
+    MVE  = 1,   // video file
+    SVE  = 2,   // subtitle file
+};
+FILE_DROP_TYPE file_drop_type = NONE;
 
+//TODO: move this to io_Platform
+bool check_ext(char* file, const char* ext)
+{
+    char* file_ext = strrchr(file, '.') + 1;
+    int cmp = strncasecmp(file_ext, ext, 4);
+    if (cmp == 0) {
+        return true;
+    }
+    return false;
+}
 
+void file_drop_callback(GLFWwindow *window, int count, const char** files)
+{
+    for (int i = 0; i < count; i++)
+    {
+        if (check_ext((char*)files[i], "mve")) {
+            file_drop_type = MVE;
+            if (video_buffer.mve_file) {
+                free(video_buffer.mve_file);
+                video_buffer.mve_file = NULL;
+            }
+            int name_len = strlen(files[i])+1;
+            video_buffer.mve_file = (char*)malloc(name_len);
+            if (video_buffer.mve_file == NULL) {
+                printf("ERROR: Unable to allocate memory for new file drop.\n");
+                return;
+            }
+            memcpy(video_buffer.mve_file, files[i], name_len);
+        } else
+        if (check_ext((char*)files[i], "sve")) {
+            file_drop_type = SVE;
+            if (video_buffer.sve_file) {
+                free(video_buffer.sve_file);
+                video_buffer.sve_file = NULL;
+            }
+            int name_len = strlen(files[i])+1;
+            video_buffer.sve_file = (char*)malloc(name_len);
+            if (video_buffer.sve_file == NULL) {
+                printf("ERROR: Unable to allocate memory for new file drop.\n");
+                return;
+            }
+            memcpy(video_buffer.sve_file, files[i], name_len);
+        }
+    }
+
+    video_buffer.file_drop_frame = true;
+}
 
 static void glfw_error_callback(int error, const char* description)
 {
@@ -401,17 +453,6 @@ bool load_file(char* filename)
     return true;
 }
 
-//TODO: move this to io_Platform
-bool check_ext(char* file, const char* ext)
-{
-    char* file_ext = strrchr(file, '.') + 1;
-    int cmp = strncasecmp(file_ext, ext, 4);
-    if (cmp == 0) {
-        return true;
-    }
-    return false;
-}
-
 void block_select(ImVec2 pos, float scale)
 {
     static bool show = false;
@@ -717,22 +758,40 @@ struct framerate {
 } fps_info;
 
 // subtitles
-void show_subtitles(int curr_frame, subtitles* subs)
+void show_subtitles(int curr_frame, subtitles* subs, float scale, int pos)
 {
-    static char subs_buffer[256] = {0};
+    static char subs_buffer[128]   = {0};
+    static char subs_overflow[256] = {0};
+
+    // main subtitle buffer (only shows first 95 characters)
+    ImGui::PushFont(nullptr, scale*15);
     ImGui::Text("%s", subs_buffer);
 
+    ImGui::SetCursorPosX(pos);
+    // overflow buffer (red to indicate it won't be displayed by game engine)
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255,0,0,255));
+    ImGui::Text("%s", subs_overflow);
+    ImGui::SetItemTooltip("%s",
+        "Too many characters on this line.\n"
+        "The engine will only display the first 95\n"
+        "and the rest will be cut off.");
+    ImGui::PopStyleColor();
+    ImGui::PopFont();
+
     if (subs->sub_list == nullptr) {
+        snprintf(subs_buffer, 128, "Subtitles not loaded");
         return;
     }
 
-    static int prev_frame        = 0;
-    static int next_frame        = 0;
-    static int curr_sub          = 0;
-    bool wait = false;
+    static int prev_frame   = 0;
+    static int next_frame   = 0;
+    static int curr_sub     = 0;
+    bool wait               = false;
 
     if (next_frame == 0) {
         next_frame = subs->sub_list[curr_sub].frame_start;
+        subs_buffer[0] = '\0';
+        subs_overflow[0] = '\0';
         wait = true;
     }
 
@@ -744,9 +803,26 @@ void show_subtitles(int curr_frame, subtitles* subs)
         if ((curr_sub < subs->count) && subs->sub_list[curr_sub].subtitle) {
             next_frame = subs->sub_list[curr_sub+1].frame_start;
 
-            int copy_len =  (subs->sub_list[curr_sub].length < 256) ? subs->sub_list[curr_sub].length : 256;
-            strncpy(subs_buffer, subs->sub_list[curr_sub].subtitle, copy_len);
-            subs_buffer[subs->sub_list[curr_sub].length] = '\0';
+            // copy subtitle to buffer
+            // MAX_SUB_LENGTH is 95 because that's all the game engine will display
+            #define MAX_SUB_LENGTH      (95)
+            int sub_len  = subs->sub_list[curr_sub].length;
+            int copy_len = (sub_len < MAX_SUB_LENGTH) ? sub_len : MAX_SUB_LENGTH;
+            char* sub_txt = subs->sub_list[curr_sub].subtitle;
+            strncpy(subs_buffer, sub_txt, copy_len);
+
+            // copy overflow characters if line is too long
+            if (sub_len > copy_len) {
+                if (sub_len > 256 - MAX_SUB_LENGTH) {
+                    snprintf(subs_overflow, 256, "Too many characters on this line. The engine will only display the first 94.");
+                } else {
+                    strncpy(subs_overflow, &sub_txt[copy_len], sub_len-copy_len);
+                    subs_overflow[sub_len - copy_len] = '\0';
+                }
+            } else {
+                subs_overflow[sub_len - copy_len] = '\0';
+            }
+            subs_buffer[copy_len] = '\0';
         }
     }
     if (curr_frame < prev_frame) {
@@ -761,7 +837,7 @@ void video_player()
 {
     uint64_t curr_time = io_nano_time();
     static bool file_loaded     = false;
-    static bool render_on_chunk = false;        //TODO: do I want this anymore? currently unused
+    // static bool render_on_chunk = false;        //TODO: do I want this anymore? currently unused
     ImVec2 pos = ImGui::GetCursorPos();
     static Chunk chunk;
     static int which_file = 0;
@@ -780,25 +856,29 @@ void video_player()
     );
     ImGui::PopItemWidth();
 
-    char* filename = video_buffer.filename ? video_buffer.filename : files[which_file].filename;
+    char* mve_file = video_buffer.mve_file ? video_buffer.mve_file : files[which_file].filename;
+    char* sve_file = video_buffer.sve_file;
     if (video_buffer.file_drop_frame) {
-        video_buffer.file_drop_frame = false;
-
-        if (check_ext(filename, "sve")) {
+        if (file_drop_type == MVE) {
+            file_loaded = load_file(mve_file);
+            fps_info.next_frame = curr_time;// fps_info.frame_time / fps_info.speed;
+            shutdown_audio();
+        } else
+        if (file_drop_type == SVE) {
             if (video_buffer.subs.data) {
                 free(video_buffer.subs.data);
                 free(video_buffer.subs.sub_list);
             }
-            video_buffer.subs = load_subs(filename);
+            video_buffer.subs = load_subs(sve_file);
+        } else {
+            //TODO: add a popup warning explaining wrong file type
+            //TODO: maybe convert this to a switch? but at 2 types its not worth worrying about yet
         }
-        if (check_ext(filename, "mve")) {
-            file_loaded = load_file(filename);
-            fps_info.next_frame = curr_time;// fps_info.frame_time / fps_info.speed;
-            shutdown_audio();
-        }
+        file_drop_type = NONE;
+        video_buffer.file_drop_frame = false;
     }
     if (ImGui::Button("Play MVE")) {
-        file_loaded = load_file(filename);
+        file_loaded = load_file(mve_file);
         fps_info.next_frame = curr_time;// fps_info.frame_time / fps_info.speed;
         shutdown_audio();
     }
@@ -869,7 +949,7 @@ void video_player()
 
     ImGui::PushItemWidth(200);
     ImGui::Combo("file", &which_file,
-        video_buffer.filename ? video_buffer.filename :
+        video_buffer.mve_file ? video_buffer.mve_file :
         "FO1 IPLOGO.MVE\0"
         "FO2 IPLOGO.MVE\0"
         "MR  final.mve\0"
@@ -923,14 +1003,14 @@ void video_player()
                 free(video_buffer.subs.data);
                 free(video_buffer.subs.sub_list);
             }
-            video_buffer.subs = load_subs(filename);
+            video_buffer.subs = load_subs(sve_file);
         }
         ImGui::SameLine();
-        show_subtitles(video_buffer.frame_count, &video_buffer.subs);
+        show_subtitles(video_buffer.frame_count, &video_buffer.subs, scale, ImGui::GetCursorPosX());
     } else {
         if (!file_loaded) {
             ImGui::SetCursorPosX(pos.x+600);
-            ImGui::Text("Unable to open %s", filename);
+            ImGui::Text("Unable to open %s", mve_file);
         }
     }
 
@@ -973,7 +1053,7 @@ void video_player()
             file_loaded = false;
         }
 
-        if (render_frame || render_on_chunk) {
+        if (render_frame) {// || render_on_chunk) {
             break;
         }
     }

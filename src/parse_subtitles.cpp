@@ -152,7 +152,7 @@ subtitles parse_subtitles(uint8_t* data, int size)
                 i++;
             }
             // get the length of this subtitle line
-            subs[line].length = i - start -1;
+            subs[line].length = i - start;
             line++;
         }
     }

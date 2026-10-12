@@ -32,8 +32,8 @@ struct timer_struct {
 struct video {
     //files
     bool file_drop_frame = false;
-    char* filename = NULL;
-    FILE* fileptr = NULL;
+    char* mve_file = NULL;
+    FILE* fileptr  = NULL;
     //video
     uint8_t* frnt_buffer = NULL;
     uint8_t* back_buffer = NULL;
@@ -49,6 +49,7 @@ struct video {
 
     int audio_pipe     = ALSA;
     subtitles subs;
+    char* sve_file = NULL;
 
     int map_size;
     uint8_t* map_stream = NULL;
